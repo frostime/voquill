@@ -19,14 +19,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: macOS
-            os: macos-14
-            args: "--target universal-apple-darwin"
-            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
-            tauri_platform: macos
-            node_platform: darwin
-            bundle_dir: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
-            require_gpu_sidecar: true
           - label: Windows
             os: windows-latest
             args: ""
@@ -34,14 +26,6 @@ jobs:
             tauri_platform: windows
             node_platform: win32
             bundle_dir: D:\cargo\release\bundle
-            require_gpu_sidecar: false
-          - label: Linux
-            os: ubuntu-22.04
-            args: "--bundles deb"
-            rust_targets: ""
-            tauri_platform: linux
-            node_platform: linux
-            bundle_dir: apps/desktop/src-tauri/target/release/bundle
             require_gpu_sidecar: false
     steps:
       - name: Checkout source
