@@ -5,7 +5,6 @@ import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
-import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import {
   Chip,
   CircularProgress,
@@ -21,7 +20,6 @@ import dayjs from "dayjs";
 import { useCallback, useMemo } from "react";
 import { useIntl } from "react-intl";
 import { showErrorSnackbar, showSnackbar } from "../../actions/app.actions";
-import { sendTextToActiveRemoteTarget } from "../../actions/remote-output.actions";
 import {
   openFlagTranscriptionDialog,
   openRetranscribeDialog,
@@ -29,7 +27,6 @@ import {
 } from "../../actions/transcriptions.actions";
 import { getTranscriptionRepo } from "../../repos";
 import { produceAppState, useAppStore } from "../../store";
-import { getActiveRemoteTarget } from "../../utils/device.utils";
 import { getIsVoquillCloudUser } from "../../utils/member.utils";
 import { TypographyWithMore } from "../common/TypographyWithMore";
 import { AudioPlayerPill } from "./AudioPlayerPill";
@@ -59,7 +56,6 @@ export const TranscriptionRow = ({ id }: TranscriptionRowProps) => {
   );
 
   const audioSnapshot = transcription?.audio;
-  const activeRemoteTarget = useAppStore(getActiveRemoteTarget);
   const isRemoteTranscript = transcription?.remoteStatus === "received";
   const isSentToRemote = transcription?.remoteStatus === "sent";
   const retranscribeTooltip = isRetranscribing
@@ -122,14 +118,6 @@ export const TranscriptionRow = ({ id }: TranscriptionRowProps) => {
       showErrorSnackbar(error);
     }
   }, [id, intl]);
-
-  const handleSendToReceiver = useCallback(async () => {
-    try {
-      await sendTextToActiveRemoteTarget(transcription?.transcript || "");
-    } catch (error) {
-      showErrorSnackbar(error);
-    }
-  }, [transcription?.transcript]);
 
   return (
     <>
@@ -207,26 +195,6 @@ export const TranscriptionRow = ({ id }: TranscriptionRowProps) => {
               <DeleteOutlineRoundedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          {!isRemoteTranscript && activeRemoteTarget && (
-            <Tooltip
-              title={intl.formatMessage(
-                { defaultMessage: "Send to {name}" },
-                { name: activeRemoteTarget.name },
-              )}
-              placement="top"
-            >
-              <IconButton
-                aria-label={intl.formatMessage(
-                  { defaultMessage: "Send to {name}" },
-                  { name: activeRemoteTarget.name },
-                )}
-                onClick={handleSendToReceiver}
-                size="small"
-              >
-                <SendRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
         </Stack>
       </Stack>
       <TypographyWithMore

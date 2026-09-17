@@ -68,17 +68,9 @@ import {
   XaiModelProviderRepo,
 } from "./model-provider.repo";
 import {
-  BasePairedRemoteDeviceRepo,
-  LocalPairedRemoteDeviceRepo,
-} from "./paired-remote-device.repo";
-import {
   BaseUserPreferencesRepo,
   LocalUserPreferencesRepo,
 } from "./preferences.repo";
-import {
-  BaseRemoteReceiverRepo,
-  LocalRemoteReceiverRepo,
-} from "./remote-receiver.repo";
 import { BaseStorageRepo, LocalStorageRepo } from "./storage.repo";
 import { BaseStripeRepo, CloudStripeRepo } from "./stripe.repo";
 import { BaseTenantRepo, CloudTenantRepo } from "./tenant.repo";
@@ -160,14 +152,6 @@ export const getUserRepo = (): BaseUserRepo => {
 
 export const getUserPreferencesRepo = (): BaseUserPreferencesRepo => {
   return new LocalUserPreferencesRepo();
-};
-
-export const getPairedRemoteDeviceRepo = (): BasePairedRemoteDeviceRepo => {
-  return new LocalPairedRemoteDeviceRepo();
-};
-
-export const getRemoteReceiverRepo = (): BaseRemoteReceiverRepo => {
-  return new LocalRemoteReceiverRepo();
 };
 
 export const getTranscriptionRepo = (): BaseTranscriptionRepo => {
