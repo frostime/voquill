@@ -19,8 +19,9 @@
 M1  Baseline 计划冻结        → 可运行基线 + characterization 记录 + accepted SHAPE
 M2  Windows-only 独立仓库    → 只含 Desktop 的可运行 monorepo（行为与 M1 一致）
 M3  商业体系最小拆除         → 免登录、付费 UI 不可达、免费功能全可用的本地版
-M4  录音可靠性              → durability 生命周期 + 故障注入验收通过
-M5  Provider 与外围收尾      → repos/index.ts 收缩 + 外围清理 + 最终形态
+M4  可恢复录音生命周期       → 音频先持久化 + History 手动恢复 + 故障注入验收
+M5  胶囊进度反馈             → 录音计时 + Saving/Transcribing/Refining 阶段反馈
+M6  Provider 与外围收尾      → repos/index.ts 收缩 + 外围清理 + 最终形态
 ```
 
 Milestones 之间串行推进；M 内部允许并行分支。
@@ -152,40 +153,58 @@ END
 
 ---
 
-# M4 — 录音可靠性 `TODO`  << CURRENT
+# M4 — 可恢复录音生命周期 `IN PROGRESS`  << CURRENT
 
-    REQUIRES [M3 完成]：避免把生命周期改动与商业模块删除混在同一变更里。
-    独立改动，遵循 `specs/RECORDING-DURABILITY.md` R1–R8。
+    REQUIRES [M3 完成]：DONE。
+    独立 change：`.dev/changes/recording-recovery/recording-recovery.DEV-SPEC.md`。
+    独立分支：`feat/recording-recovery`（基于 main@1a8b61f5）。
 
-[重构 stop 流程持久化顺序]
-    现状已确认（DictationSideEffects.stopRecordingRaw）：
-    stop → STT → 空结果 early return（录音丢失）→ post-process →
-    storeTranscription（未 await；audio 落盘失败仅 console.error）。
-    目标顺序：
-    stop → await persist audio → await create history row → STT →
-    persist raw transcript → LLM → persist final transcript。
-    store 调用必须 await；audio 落盘失败不得静默继续。
-    REQUIRES 无（可独立开始），但合入点必须在 M3 之后。
-    DEFER status 字段与 DB migration 的具体设计
-        在实施本节点时按最小需要决定（优先复用 warnings/rawTranscript 现有字段表达失败态）。
+[确认行为与架构边界] `DONE`
+    2026-09-17 用户确认：正常 Dictation、非 Incognito、非显式 Cancel 才进入保证范围；
+    本地存储失败显式报错但不做内存队列/orphan scan；恢复由 History 手动 Retranscribe。
+    采用现有 Transcription 的 recorded/transcribed/completed 持久化检查点，
+    不新增状态机、数据库状态字段、后台队列或第二套 History 数据源。
 
-[复用既有 retry 路径]
-    验证 `retranscribeTranscription()` 可作为失败恢复标准路径；
-    不新建第二套 retry pipeline。若已有路径不适用，先说明差异再决定。
+[实现持久化检查点]
+    stop 返回有效音频后，先 await WAV + History row，再进行 post-stop STT finalize；
+    STT 成功后在 LLM 前保存 raw fallback；最终结果更新同一 ID。
+    失败录音与成功录音执行相同的 20 条音频 retention。
 
-[incognito 语义确认]
-    DEFER
-        只验证当前 incognito 不入库语义不被误伤，不重定义隐私设计。
+[修正 retry 检查点]
+    现有 Retranscribe 继续从本地音频重跑，但 STT 成功后必须在 LLM 前保存 raw；
+    LLM 失败不得丢掉本轮已取得的 raw transcript。
 
 [故障注入验收]
-    按 spec 验收示例实现/执行：STT 500、LLM 429、persist 后 kill app。
-    退出条件：R1–R8 全部满足；app restart 后 recording 可见、可播放、可 retry。
+    验证无效 API Key/空 transcript、LLM 失败、初始 checkpoint 后强制退出；
+    app restart 后 recording 可见、可播放、可手动 retry。
+
+    M4 退出条件：DEV-SPEC Acceptance Criteria 全部满足，用户 smoke 通过；
+    change 独立 merge 回 main 后结束该分支。
 
 ---
 
-# M5 — Provider 与外围收尾 `TODO`
+# M5 — 胶囊进度反馈 `TODO`
 
-    REQUIRES [M4 完成]。
+    REQUIRES [M4 完成]：使用稳定后的 recording lifecycle 阶段边界，避免重复修改。
+    必须作为独立 change / branch 实施，不与 recording recovery 混合。
+
+[录音计时]
+    Recording 阶段在 native Windows pill 显示 MM:SS；native 单调时钟计时，
+    不由 TypeScript 每秒跨 IPC 推送；离开 Recording 后停止并重置。
+
+[处理阶段反馈]
+    Dictation 显示 Saving → Transcribing → Refining（仅实际启用 LLM 时）；
+    Agent voice 显示计时与 Transcribing，随后交回既有 Assistant thinking/chat UI，
+    不显示 Refining。瞬时 UI phase 不写数据库。
+
+    M5 退出条件：计时准确、阶段与实际处理一致、Dictation/Agent 既有交互无回归；
+    独立用户视觉验收通过。
+
+---
+
+# M6 — Provider 与外围收尾 `TODO`
+
+    REQUIRES [M5 完成]。
 
 [Provider selection 清理]（宽容模式同样适用）
     仅删除 M3 拆除后已不再可用/不再可达的 provider 分支（cloud/enterprise path），
@@ -214,7 +233,7 @@ END
     DEFER i18n 评估
         最后处理；收益低于 Auth/Firebase 清理，不优先。
 
-    M5 退出条件：最终形态达成；全部 characterization 通过；
+    M6 退出条件：最终形态达成；全部 characterization 通过；
     与 accepted SHAPE 的 actual diff 对比无 material drift。
 
 ---
@@ -225,11 +244,11 @@ RESOLVED Remote pairing / remote output 功能去留 → 删除（2026-09-16 用
     对端是 mobile（产品线已删），功能永久不可用。纳入 M3 [删除 remote pairing / remote output 功能]。
 
 OPEN Windows installer 保留时长
-    第一轮默认保留（scope-matrix：KEEP INITIALLY）。M5 时评估是否继续维护。
+    第一轮默认保留（scope-matrix：KEEP INITIALLY）。M6 时评估是否继续维护。
 
 OPEN 个人 Releases 渠道
     用户倾向自己发布 GitHub Releases。是否保留任何 release workflow 影响外围清理范围；
-    M5 前向用户确认一次即可。
+    M6 前向用户确认一次即可。
 
 # ASSUME 事项
 
@@ -279,3 +298,7 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
   不做常规 merge）；frostime-main 已删除。fork 远端残留的 upstream-main 分支已删。
   README 重写（fork 声明 + AGPLv3 继承 + 上游署名）；AGENTS.md 重写为 fork 入口；
   .dev 对齐 repo layout 规范（changes/personal-windows-fork/）。已推 origin/main (30218eea)。
+- 2026-09-17 用户确认 M4 为独立功能 change，不按局部 bugfix 处理：建立
+  `.dev/changes/recording-recovery/recording-recovery.DEV-SPEC.md` 与分支
+  `feat/recording-recovery`（base main@1a8b61f5）。新增胶囊计时/处理阶段反馈作为后续
+  独立 M5；原 Provider/外围扫尾顺延为 M6。
