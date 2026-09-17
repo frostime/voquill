@@ -274,3 +274,8 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
 - 2026-09-17 清理阶段收官：chore/personal-prune merge --no-ff 至 frostime-main
   （merge commit bdd4025b），并推送 origin/main（ef8572a3..bdd4025b）。
   后续 M4/M5 从 frostime-main 新开分支；chore/personal-prune 分支可保留作阶段存档。
+- 2026-09-17 分支拓扑重构（用户决策）：main = 个人主分支（跟踪 origin/main）；
+  upstream-main = 只读跟踪 upstream/main（fetch upstream main:upstream-main 同步，
+  不做常规 merge）；frostime-main 已删除。fork 远端残留的 upstream-main 分支已删。
+  README 重写（fork 声明 + AGPLv3 继承 + 上游署名）；AGENTS.md 重写为 fork 入口；
+  .dev 对齐 repo layout 规范（changes/personal-windows-fork/）。已推 origin/main (30218eea)。
