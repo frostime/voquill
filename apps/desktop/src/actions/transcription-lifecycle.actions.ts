@@ -110,7 +110,9 @@ export const beginRecordingLifecycle = async (
       "store_transcription_audio",
       {
         id,
-        samples: Array.from(audio.samples),
+        samples: Array.isArray(audio.samples)
+          ? audio.samples
+          : Array.from(audio.samples),
         sampleRate,
       },
     );
