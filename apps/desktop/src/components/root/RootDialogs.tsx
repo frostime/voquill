@@ -1,6 +1,4 @@
 import { NativeSetupDialog } from "./NativeSetupDialog";
-import { PaymentDialog } from "../payment/PaymentDialog";
-import { UpgradePlanDialog } from "../pricing/UpgradePlanDialog";
 import { AIAgentModeDialog } from "../settings/AIAgentModeDialog";
 import { AIPostProcessingDialog } from "../settings/AIPostProcessingDialog";
 import { AITranscriptionDialog } from "../settings/AITranscriptionDialog";
@@ -32,8 +30,6 @@ export const RootDialogs = () => {
       <AudioDialog />
       <ShortcutsDialog />
       <ClearLocalDataDialog />
-      <UpgradePlanDialog />
-      <PaymentDialog />
       <DeleteAccountDialog />
       <MoreSettingsDialog />
       <DictationLanguageDialog />

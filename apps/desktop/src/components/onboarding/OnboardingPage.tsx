@@ -9,9 +9,7 @@ import { KeybindingsForm } from "./KeybindingsForm";
 import { MicCheckForm } from "./MicCheckForm";
 import { MicPermsForm } from "./MicPermsForm";
 import { ReferralSourceForm } from "./ReferralSourceForm";
-import { SignInForm } from "./SignInForm";
 import { TutorialForm } from "./TutorialForm";
-import { UnlockedProForm } from "./UnlockedProForm";
 import { UserDetailsForm } from "./UserDetailsForm";
 
 export default function OnboardingPage() {
@@ -28,7 +26,6 @@ export default function OnboardingPage() {
       justifyContent="center"
       sx={{ height: "100%" }}
     >
-      {currentPage === "signIn" && <SignInForm />}
       {currentPage === "chooseTranscription" && <ChooseTranscriptionForm />}
       {currentPage === "chooseLlm" && <ChooseLlmForm />}
       {currentPage === "userDetails" && <UserDetailsForm />}
@@ -37,7 +34,6 @@ export default function OnboardingPage() {
       {currentPage === "a11yPerms" && <A11yPermsForm />}
       {currentPage === "keybindings" && <KeybindingsForm />}
       {currentPage === "micCheck" && <MicCheckForm />}
-      {currentPage === "unlockedPro" && <UnlockedProForm />}
       {currentPage === "tutorial" && <TutorialForm />}
     </Stack>
   );

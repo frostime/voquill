@@ -3,7 +3,6 @@ import { getIsDevMode } from "../utils/env.utils";
 import { PricingPlan } from "../utils/price.utils";
 
 export type OnboardingPageKey =
-  | "signIn"
   | "chooseTranscription"
   | "chooseLlm"
   | "userDetails"
@@ -12,7 +11,6 @@ export type OnboardingPageKey =
   | "a11yPerms"
   | "keybindings"
   | "micCheck"
-  | "unlockedPro"
   | "tutorial";
 
 export type OnboardingState = {
@@ -37,7 +35,7 @@ export type OnboardingState = {
 export const INITIAL_ONBOARDING_STATE: OnboardingState = {
   name: "",
   title: "",
-  currentPage: "signIn",
+  currentPage: "chooseTranscription",
   history: [],
   submitting: false,
   tryItOutInput: "",

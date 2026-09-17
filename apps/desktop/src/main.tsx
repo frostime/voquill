@@ -4,10 +4,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
-import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import { FirebaseOptions, initializeApp } from "firebase/app";
-import mixpanel from "mixpanel-browser";
 import { connectAuthEmulator } from "firebase/auth";
 import {
   connectFirestoreEmulator,
@@ -25,7 +22,7 @@ import { SnackbarEmitter } from "./components/root/SnackbarEmitter";
 import { getIntlConfig } from "./i18n";
 import { theme } from "./theme";
 import { createEffectiveAuth } from "./utils/auth.utils";
-import { getIsEmulators, getStripePublicKey } from "./utils/env.utils";
+import { getIsEmulators } from "./utils/env.utils";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey:
@@ -87,15 +84,6 @@ if (getIsEmulators()) {
   connectDatabaseEmulator(database, "localhost", 9000);
 }
 
-const mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN;
-if (mixpanelToken) {
-  mixpanel.init(mixpanelToken, {
-    debug: import.meta.env.DEV,
-    track_pageview: false,
-    persistence: "localStorage",
-  });
-}
-
 const rootElement = document.getElementById("root") as HTMLElement;
 
 // Prevent HMR from creating multiple React roots.
@@ -125,13 +113,10 @@ const Main = ({ children }: ChildrenProps) => {
 };
 
 {
-  const stripePromise = loadStripe(getStripePublicKey());
   root.render(
     <Main>
-      <Elements stripe={stripePromise}>
-        <SnackbarEmitter />
-        <AppWithLoading />
-      </Elements>
+      <SnackbarEmitter />
+      <AppWithLoading />
     </Main>,
   );
 }
