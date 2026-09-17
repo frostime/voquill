@@ -213,6 +213,9 @@ export class DictationStrategy extends BaseStrategy {
           getLogger().info("Transcript output routed successfully");
         } catch (error) {
           getLogger().error(`Failed to route transcription output: ${error}`);
+          postProcessWarnings.push(
+            error instanceof Error ? error.message : String(error),
+          );
           showErrorSnackbar(
             error instanceof Error
               ? error.message

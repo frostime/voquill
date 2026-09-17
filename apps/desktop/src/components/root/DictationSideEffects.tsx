@@ -23,7 +23,13 @@ import {
   resolveToolPermission,
   setToolAlwaysAllow,
 } from "../../actions/tool.actions";
-import { storeTranscription } from "../../actions/transcribe.actions";
+import {
+  beginRecordingLifecycle,
+  checkpointRawTranscription,
+  checkpointTranscriptionFailure,
+  completeTranscriptionLifecycle,
+  getTranscriptionFailureWarning,
+} from "../../actions/transcription-lifecycle.actions";
 import { recordStreak } from "../../actions/user.actions";
 import {
   useHotkeyFire,
@@ -331,32 +337,6 @@ export const DictationSideEffects = () => {
       };
     }
 
-    getLogger().info("Finalizing transcription session");
-    trackAppUsed(appTarget?.name ?? "Unknown");
-
-    if (appTarget) {
-      saveManualStyleForApp(appTarget);
-    }
-
-    const toneId = getToneIdToUse(getAppState(), {
-      currentAppToneId: appTarget?.toneId ?? null,
-    });
-
-    const transcribeResult = await sessionRef.current?.finalize(audio, {
-      toneId,
-      a11yInfo,
-    });
-    const rawTranscript = transcribeResult?.rawTranscript;
-    getLogger().verbose(
-      `Transcription result: rawTranscript=${rawTranscript ? `${rawTranscript.length} chars` : "empty"}, toneId=${toneId ?? "none"}, app=${appTarget?.name ?? "unknown"}`,
-    );
-    if (!rawTranscript) {
-      getLogger().warning("stopRecordingRaw: no rawTranscript from finalize");
-      return {
-        shouldContinue: false,
-      };
-    }
-
     const session = sessionRef.current;
     const strategy = strategyRef.current;
     if (!session || !strategy) {
@@ -368,23 +348,86 @@ export const DictationSideEffects = () => {
       };
     }
 
+    const lifecycle = strategy.shouldStoreTranscript()
+      ? await beginRecordingLifecycle(audio)
+      : null;
+    let persistedTranscription = lifecycle?.transcription ?? null;
+
+    getLogger().info("Finalizing transcription session");
+    trackAppUsed(appTarget?.name ?? "Unknown");
+
+    if (appTarget) {
+      saveManualStyleForApp(appTarget);
+    }
+
+    const toneId = getToneIdToUse(getAppState(), {
+      currentAppToneId: appTarget?.toneId ?? null,
+    });
+
+    let transcribeResult;
+    try {
+      transcribeResult = await session.finalize(audio, {
+        toneId,
+        a11yInfo,
+      });
+    } catch (error) {
+      await checkpointTranscriptionFailure(persistedTranscription, [
+        getTranscriptionFailureWarning(error),
+      ]);
+      throw error;
+    }
+
+    const rawTranscript = transcribeResult.rawTranscript?.trim();
+    getLogger().verbose(
+      `Transcription result: rawTranscript=${rawTranscript ? `${rawTranscript.length} chars` : "empty"}, toneId=${toneId ?? "none"}, app=${appTarget?.name ?? "unknown"}`,
+    );
+    if (!rawTranscript) {
+      getLogger().warning("stopRecordingRaw: no rawTranscript from finalize");
+      await checkpointTranscriptionFailure(persistedTranscription, [
+        ...transcribeResult.warnings,
+        "Transcription produced no text.",
+      ]);
+      return {
+        shouldContinue: false,
+      };
+    }
+
+    if (persistedTranscription) {
+      persistedTranscription = await checkpointRawTranscription(
+        persistedTranscription,
+        {
+          rawTranscript,
+          metadata: transcribeResult.metadata,
+          warnings: transcribeResult.warnings,
+        },
+      );
+    }
+
     if (getAppState().activeRecordingMode === "agent") {
       await strategy.setPhase("idle");
     }
 
     getLogger().info("Post-processing transcript");
-    const result = await strategy.handleTranscript({
-      rawTranscript,
-      processedTranscript: transcribeResult.processedTranscript,
-      serverPostProcessMetadata: transcribeResult.postProcessMetadata,
-      toneId,
-      a11yInfo,
-      currentApp: appTarget,
-      loadingToken: null,
-      audio,
-      transcriptionMetadata: transcribeResult.metadata,
-      transcriptionWarnings: transcribeResult.warnings,
-    });
+    let result;
+    try {
+      result = await strategy.handleTranscript({
+        rawTranscript,
+        processedTranscript: transcribeResult.processedTranscript,
+        serverPostProcessMetadata: transcribeResult.postProcessMetadata,
+        toneId,
+        a11yInfo,
+        currentApp: appTarget,
+        loadingToken: null,
+        audio,
+        transcriptionMetadata: transcribeResult.metadata,
+        transcriptionWarnings: transcribeResult.warnings,
+      });
+    } catch (error) {
+      await checkpointTranscriptionFailure(persistedTranscription, [
+        getTranscriptionFailureWarning(error),
+      ]);
+      throw error;
+    }
 
     const transcript = result.transcript;
     const sanitizedTranscript = result.sanitizedTranscript;
@@ -394,19 +437,18 @@ export const DictationSideEffects = () => {
       `Post-processing complete: transcript=${transcript ? `${transcript.length} chars` : "empty"}, warnings=${postProcessWarnings.length}`,
     );
 
-    if (strategy.shouldStoreTranscript()) {
-      getLogger().verbose("Storing transcription");
-      storeTranscription({
-        audio,
-        rawTranscript: rawTranscript ?? null,
-        sanitizedTranscript,
-        transcript,
-        transcriptionMetadata: transcribeResult.metadata,
-        postProcessMetadata,
-        warnings: [...transcribeResult.warnings, ...postProcessWarnings],
-        remoteStatus: result.remoteStatus,
-        remoteDeviceId: result.remoteDeviceId,
-      });
+    if (lifecycle) {
+      await completeTranscriptionLifecycle(
+        { ...lifecycle, transcription: persistedTranscription },
+        {
+          sanitizedTranscript,
+          transcript,
+          postProcessMetadata,
+          warnings: postProcessWarnings,
+          remoteStatus: result.remoteStatus,
+          remoteDeviceId: result.remoteDeviceId,
+        },
+      );
     }
 
     refreshMember();
