@@ -40,7 +40,7 @@ Milestones 之间串行推进；M 内部允许并行分支。
 
 [characterization 基线] `DONE`
     2026-09-16 用户在 Windows 上完成 smoke：常用功能全部正常。结果记录在
-    `.dev/orchestration/characterization-checklist.md`。此为 M3+ 的回归契约。
+    `.dev/changes/personal-windows-fork/characterization-checklist.md`。此为 M3+ 的回归契约。
     按 `specs/DESKTOP-FEATURE-PRESERVATION.md` 保留能力清单手工 smoke：
     record/stop、hotkey、overlay、text injection、History、playback、retranscribe、
     BYOK STT、AI post-process、Local Whisper、Dictionary、Writing Styles、
@@ -271,3 +271,6 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
   tone overrides 降级、VOQUILL_API_KEY_SECRET 未设置（个人机器可接受）。
 - 2026-09-16 用户决策：remote pairing/remote output 删除（对端 mobile 已删），
   纳入 M3 独立 commit。M3 全部前置决策已齐备，可开工。
+- 2026-09-17 清理阶段收官：chore/personal-prune merge --no-ff 至 frostime-main
+  （merge commit bdd4025b），并推送 origin/main（ef8572a3..bdd4025b）。
+  后续 M4/M5 从 frostime-main 新开分支；chore/personal-prune 分支可保留作阶段存档。

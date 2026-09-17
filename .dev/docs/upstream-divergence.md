@@ -10,7 +10,7 @@ updated: 2026-09-17
 
 本仓库是 `voquill/voquill` 的 Personal fork，定位：**Windows Desktop 专属的个人长期使用版**。
 分叉决策的完整契约见 `.dev/proposal/voquill-personal-windows-handoff/`（产品决策、范围矩阵、
-SHAPE、两个 SPEC）；当前执行进度见 `.dev/orchestration/personal-windows-fork.ORCH.md`。
+SHAPE、两个 SPEC）；当前执行进度见 `.dev/changes/personal-windows-fork/ORCH.md`。
 
 ## 分叉基线
 
@@ -124,4 +124,4 @@ member/stripe/tenant/enterprise/config 的 Cloud 分支 repo、`@voquill/pricing
 History（列表/播放/retranscribe）、Dictionary、Writing Styles/Tones、Assistant/Chats、
 API Key 管理、本地 SQLite 与设置、Windows hotkey/overlay/injection、windows-installer。
 
-回归验证基线：`.dev/orchestration/characterization-checklist.md`。
+回归验证基线：`.dev/changes/personal-windows-fork/characterization-checklist.md`。

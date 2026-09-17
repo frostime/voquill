@@ -1,50 +1,38 @@
+** What this repository is **
+
+- Personal fork of [voquill/voquill](https://github.com/voquill/voquill): Windows Desktop only, for private long-term use. Not an upstream PR — never preserve upstream compatibility at the cost of personal-use simplicity.
+- Highest constraint: free (non-subscription) Windows Desktop features must keep their behavior. Removing infrastructure that a kept feature depends on requires migrating that feature to a local owner first — never delete the caller to make compilation pass.
+- Divergence record, task orchestration, and regression contract live in `.dev/`; start at `.dev/docs/upstream-divergence.md`.
+
 ** Rules **
 
-- Do not propose band-aid fixes to problems. Identify the root cause, be it architectural or logical, and address it directly. Don't be afraid to remove broken code. If something is broken, fix it at the root, even if that means refactoring and overhauling systems (if necessary).
-- Enforce DRY code principles. If you find yourself copying and pasting code, stop and refactor it into a reusable function or module.
-- Avoid over-engineering. Implement solutions that are as simple as possible while still meeting requirements.
-- Your changes should have minimal impact. Do not break existing functionality.
-- Write clear, maintainable code that is self documenting. Do not comments on new code except where it's necessary to explain non-obvious things.
-- Prefer to follow existing patterns such as dialogs, state management, and API interactions, etc.
+- Do not propose band-aid fixes to problems. Identify the root cause, be it architectural or logical, and address it directly.
+- Enforce DRY code principles. Avoid over-engineering. Implement the simplest solution that meets requirements.
+- Keep changes minimal; preserve unrelated contracts and behavior.
+- Write clear, maintainable, self-documenting code. No comments except for non-obvious things.
+- Prefer to follow existing patterns (dialogs, state management, API interactions).
+- Use `<FormattedMessage defaultMessage="..." />` or `useIntl()` for i18n — never pass an `id` prop.
+- Tolerated dead code exists by user decision (Cloud repo branches, pricing/login actions, telemetry stubs). Do not "clean it up" unless asked; see `.dev/docs/upstream-divergence.md` for the list.
 
 ** Repository structure **
 
-- This is a Turborepo monorepo. Root-level: `pnpm run build`, `pnpm run lint`, `pnpm run check-types`, `pnpm run test`.
-- Shared packages live in `packages/` (types, functions, utilities, etc.). After modifying `packages/types` or `packages/functions`, rebuild them before downstream consumers can see changes.
-- Use `<FormattedMessage defaultMessage="..." />` or `useIntl()` for i18n — never pass an `id` prop.
+- Turborepo monorepo. Root-level: `pnpm run build`, `pnpm run lint`, `pnpm run check-types`, `pnpm run test`.
+- Shared packages in `packages/` (`types`, `utilities`, `voice-ai`, `rust_transcription`, `rust_windows_pill`, `desktop-native-apis`, ...). After modifying `packages/types` or `packages/functions`, rebuild before downstream consumers see changes.
 
-** `apps/desktop` — Tauri desktop app (Rust + TypeScript/React) **
+** `apps/desktop` — Tauri desktop app (Rust + TypeScript/React), the only product **
 
-- "Rust is the API, TypeScript is the Brain" — all business logic lives in TypeScript, never duplicated in Rust. Rust provides pure API capabilities without decision-making.
+- "Rust is the API, TypeScript is the Brain" — all business logic in TypeScript; Rust provides pure API capabilities (audio, hotkeys, injection, SQLite) without decision-making.
 - Single source of truth for state is Zustand (with Immer) in TypeScript.
 - Data flow: User/Native Event → Actions (`src/actions/`) → Repos (`src/repos/`) → Tauri Commands (`src-tauri/src/commands.rs`) → SQLite/Whisper/APIs.
-- Repos abstract local vs remote: `BaseXxxRepo` defines interface, `LocalXxxRepo` / `CloudXxxRepo` implement. Use `toLocalXxx()` / `fromLocalXxx()` at the Tauri boundary.
+- Repos abstract local vs remote: `BaseXxxRepo` defines the interface, `LocalXxxRepo` / `CloudXxxRepo` implement. The fork keeps Cloud implementations as tolerated dead code; new work should target Local paths.
 - Database migrations go in `src-tauri/src/db/migrations/` as `NNN_description.sql`, registered in `db/mod.rs`.
 - New Tauri commands: define in `commands.rs`, register in `app.rs` invoke_handler, create a repo, use in actions.
-
-** `enterprise/gateway` — Enterprise API gateway **
-
-- Handler pattern: if-else chain in `src/index.ts`.
-- Scripts: `pnpm run build`, `pnpm run check-types`, `pnpm run test`
-
-** `enterprise/admin` — Enterprise admin dashboard (React) **
-
-- Follows STT provider pattern for new provider types (state, actions, tab, dialog, side effects).
-- Scripts: `pnpm run build`, `pnpm run lint`.
-
-** `mobile/` — Flutter mobile app **
-
-- Flutter project at repository root (`mobile/`), not inside `apps/`.
-- Uses `flutter run`, `flutter build`, standard Flutter tooling.
-- Uses `flutter_zustand` and `draft` for state management, following similar patterns as the desktop app.
-- Use `./mobile/generate.sh` to re-generate code.
-
-** `apps/docs` — Documentation site (Astro + Starlight) **
-
-- Scripts: `pnpm run dev`, `pnpm run check-types`, `pnpm run build`.
+- Platform code is Windows-only (`src-tauri/src/platform/windows/`); `platform/mod.rs` keeps the OS abstraction boundary — implement new OS capabilities behind it.
 
 ** `apps/windows-installer` — Windows installer (Tauri) **
 
 - Build on Windows with `pnpm run tauri:build`.
 
-** Important scripts **
+** `.dev/` — development workspace (tracked) **
+
+- `docs/` durable cross-module docs; `changes/<slug>/` active change artifacts.
