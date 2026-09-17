@@ -1,44 +1,26 @@
-import mixpanel from "mixpanel-browser";
-
+// Telemetry was removed together with the commercial bootstrap
+// (Mixpanel init no longer exists, see .dev/docs/upstream-divergence.md).
+// These stubs keep call sites intact until the peripheral-cleanup stage
+// deletes the remaining trackX() callers.
 export const CURRENT_COHORT = "2025-02-a";
 
 export function getMixpanel() {
-  const mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN;
-  if (!mixpanelToken) {
-    // Mixpanel token is not set, do not initialize Mixpanel
-    return null;
-  }
-
-  return mixpanel;
+  return null;
 }
 
-export function trackPageView(pageName: string) {
-  getMixpanel()?.track("Page View", { page: pageName });
-}
+export function trackPageView(_pageName: string) {}
 
-export function trackOnboardingStep(step: string) {
-  getMixpanel()?.track("Onboarding Step", { step });
-}
+export function trackOnboardingStep(_step: string) {}
 
-export function trackDictationStart() {
-  getMixpanel()?.track("Activate Dictation Mode");
-}
+export function trackDictationStart() {}
 
-export function trackAgentStart() {
-  getMixpanel()?.track("Activate Agent Mode");
-}
+export function trackAgentStart() {}
 
-export function trackPaymentComplete() {
-  getMixpanel()?.track("Payment Complete");
-}
+export function trackPaymentComplete() {}
 
 export function trackButtonClick(
-  name: string,
-  props?: Record<string, unknown>,
-) {
-  getMixpanel()?.track("Button Click", { name, ...props });
-}
+  _name: string,
+  _props?: Record<string, unknown>,
+) {}
 
-export function trackAppUsed(appName: string) {
-  getMixpanel()?.track("App Used", { appName });
-}
+export function trackAppUsed(_appName: string) {}
