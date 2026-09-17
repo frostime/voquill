@@ -203,7 +203,12 @@ export const TranscriptionRow = ({ id }: TranscriptionRowProps) => {
         maxLines={3}
         sx={{ my: 1 }}
       >
-        {transcription?.transcript}
+        {transcription?.transcript ||
+          (audioSnapshot
+            ? intl.formatMessage({
+                defaultMessage: "Audio saved. Retranscribe to generate text.",
+              })
+            : "")}
       </TypographyWithMore>
       {audioSnapshot && (
         <AudioPlayerPill

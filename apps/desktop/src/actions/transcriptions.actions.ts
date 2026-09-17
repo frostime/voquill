@@ -1,4 +1,3 @@
-import { Transcription } from "@voquill/types";
 import { getRec } from "@voquill/utilities";
 import { getTranscriptionRepo } from "../repos";
 import { getAppState, produceAppState } from "../store";
@@ -6,6 +5,12 @@ import {
   applyReplacements,
   applySymbolConversions,
 } from "../utils/string.utils";
+import {
+  checkpointRawTranscription,
+  checkpointTranscriptionFailure,
+  completeRetranscription,
+  getTranscriptionFailureWarning,
+} from "./transcription-lifecycle.actions";
 import { postProcessTranscript, transcribeAudio } from "./transcribe.actions";
 
 export const openTranscriptionDetailsDialog = (transcriptionId: string) => {
@@ -68,13 +73,34 @@ export const retranscribeTranscription = async ({
   const repo = getTranscriptionRepo();
   const audioData = await repo.loadTranscriptionAudio(transcriptionId);
 
-  const transcribeResult = await transcribeAudio({
-    samples: audioData.samples,
-    sampleRate: audioData.sampleRate,
-    dictationLanguage: languageCode ?? undefined,
-  });
+  let transcribeResult;
+  try {
+    transcribeResult = await transcribeAudio({
+      samples: audioData.samples,
+      sampleRate: audioData.sampleRate,
+      dictationLanguage: languageCode ?? undefined,
+    });
+  } catch (error) {
+    await checkpointTranscriptionFailure(transcription, [
+      getTranscriptionFailureWarning(error),
+    ]);
+    throw error;
+  }
 
-  const rawTranscript = transcribeResult.rawTranscript;
+  const rawTranscript = transcribeResult.rawTranscript.trim();
+  if (!rawTranscript) {
+    await checkpointTranscriptionFailure(transcription, [
+      ...transcribeResult.warnings,
+      "Retranscription produced no text.",
+    ]);
+    throw new Error("Retranscription produced no text.");
+  }
+
+  let checkpointed = await checkpointRawTranscription(transcription, {
+    rawTranscript,
+    metadata: transcribeResult.metadata,
+    warnings: transcribeResult.warnings,
+  });
 
   const replacementRules = Object.values(state.termById)
     .filter((term) => term.isReplacement)
@@ -86,47 +112,25 @@ export const retranscribeTranscription = async ({
   const afterReplacements = applyReplacements(rawTranscript, replacementRules);
   const sanitizedTranscript = applySymbolConversions(afterReplacements);
 
-  const postProcessResult = await postProcessTranscript({
-    rawTranscript: sanitizedTranscript,
-    toneId: toneId ?? null,
-    dictationLanguage: languageCode ?? undefined,
-  });
-
-  const finalTranscript = postProcessResult.transcript;
-
-  const warnings = [
-    ...transcribeResult.warnings,
-    ...postProcessResult.warnings,
-  ];
-  const metadata = {
-    ...transcribeResult.metadata,
-    ...postProcessResult.metadata,
-  };
-
-  if (!finalTranscript) {
-    throw new Error("Retranscription produced no text.");
+  let postProcessResult;
+  try {
+    postProcessResult = await postProcessTranscript({
+      rawTranscript: sanitizedTranscript,
+      toneId: toneId ?? null,
+      dictationLanguage: languageCode ?? undefined,
+    });
+  } catch (error) {
+    checkpointed =
+      (await checkpointTranscriptionFailure(checkpointed, [
+        getTranscriptionFailureWarning(error),
+      ])) ?? checkpointed;
+    throw error;
   }
 
-  const updatedPayload: Transcription = {
-    ...transcription,
-    transcript: finalTranscript,
+  await completeRetranscription(checkpointed, {
+    transcript: postProcessResult.transcript,
     sanitizedTranscript,
-    modelSize: metadata?.modelSize ?? null,
-    inferenceDevice: metadata?.inferenceDevice ?? null,
-    rawTranscript: rawTranscript ?? finalTranscript,
-    transcriptionPrompt: metadata?.transcriptionPrompt ?? null,
-    postProcessPrompt: metadata?.postProcessPrompt ?? null,
-    transcriptionApiKeyId: metadata?.transcriptionApiKeyId ?? null,
-    postProcessApiKeyId: metadata?.postProcessApiKeyId ?? null,
-    transcriptionMode: metadata?.transcriptionMode ?? null,
-    postProcessMode: metadata?.postProcessMode ?? null,
-    postProcessDevice: metadata?.postProcessDevice ?? null,
-    warnings: warnings.length > 0 ? warnings : null,
-  };
-
-  const updated = await repo.updateTranscription(updatedPayload);
-
-  produceAppState((draft) => {
-    draft.transcriptionById[transcriptionId] = updated;
+    postProcessMetadata: postProcessResult.metadata,
+    warnings: postProcessResult.warnings,
   });
 };
