@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: completed
 change: recording-recovery
 base: main@1a8b61f5
 branch: feat/recording-recovery

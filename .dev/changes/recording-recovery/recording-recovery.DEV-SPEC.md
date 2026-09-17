@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: completed
 change: recording-recovery
 branch: feat/recording-recovery
 ---

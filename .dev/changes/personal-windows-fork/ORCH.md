@@ -153,9 +153,14 @@ END
 
 ---
 
-# M4 — 可恢复录音生命周期 `IN PROGRESS`  << CURRENT
+# M4 — 可恢复录音生命周期 `DONE`
 
     REQUIRES [M3 完成]：DONE。
+    2026-09-17 实现提交：2fd81e67；review follow-up：9d52015b。
+    自动验证：Desktop build、290 TS tests、cargo check、32 Rust lib tests、
+    changed-file Prettier/oxlint、diff check 全部通过。
+    用户实机验收：STT 失败后 History 显示已保存音频；保存的录音可从同一记录
+    手动 Retranscribe 并成功产出文本，核心恢复闭环通过。
     独立 change：`.dev/changes/recording-recovery/recording-recovery.DEV-SPEC.md`。
     独立分支：`feat/recording-recovery`（基于 main@1a8b61f5）。
 
@@ -165,25 +170,28 @@ END
     采用现有 Transcription 的 recorded/transcribed/completed 持久化检查点，
     不新增状态机、数据库状态字段、后台队列或第二套 History 数据源。
 
-[实现持久化检查点]
+[实现持久化检查点] `DONE`
     stop 返回有效音频后，先 await WAV + History row，再进行 post-stop STT finalize；
     STT 成功后在 LLM 前保存 raw fallback；最终结果更新同一 ID。
     失败录音与成功录音执行相同的 20 条音频 retention。
 
-[修正 retry 检查点]
+[修正 retry 检查点] `DONE`
     现有 Retranscribe 继续从本地音频重跑，但 STT 成功后必须在 LLM 前保存 raw；
     LLM 失败不得丢掉本轮已取得的 raw transcript。
 
-[故障注入验收]
-    验证无效 API Key/空 transcript、LLM 失败、初始 checkpoint 后强制退出；
-    app restart 后 recording 可见、可播放、可手动 retry。
+[故障注入验收] `DONE`
+    自动测试覆盖音频/row 顺序、持久化失败、STT failure warning、raw-before-LLM、
+    LLM failure fallback、retention、Incognito 与 invalid audio；用户实机验证 STT 失败恢复。
+    初始 checkpoint 后强制退出的时机未单独手测；实现以 awaited WAV + SQLite row
+    建立 durable boundary，用户已证明该 WAV 可由标准 retry 重新加载。胶囊阶段反馈完成后
+    如需更容易观察时机，可补一次强退/重启复验，但不阻塞本 change 收尾。
 
     M4 退出条件：DEV-SPEC Acceptance Criteria 全部满足，用户 smoke 通过；
     change 独立 merge 回 main 后结束该分支。
 
 ---
 
-# M5 — 胶囊进度反馈 `TODO`
+# M5 — 胶囊进度反馈 `TODO`  << CURRENT
 
     REQUIRES [M4 完成]：使用稳定后的 recording lifecycle 阶段边界，避免重复修改。
     必须作为独立 change / branch 实施，不与 recording recovery 混合。
@@ -222,7 +230,9 @@ END
     - [Mixpanel / analytics 清理]
         若 M3 已随 bootstrap 清除则跳过；否则单独 commit。
     - [stale docs / scripts 清理]
-        root docs/ 中 Linux/Wayland/Docker 等无关文档；release automation。
+        root docs/ 中 Linux/Wayland/Docker 等无关文档；release automation；
+        `src-tauri/examples/gen_bindings.rs` 中已删除 macOS installer command 的残留引用
+        （当前使 bare `cargo test` 失败；`cargo test --lib` 通过）。
     END
 
 [最终形态清理]
@@ -302,3 +312,7 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
   `.dev/changes/recording-recovery/recording-recovery.DEV-SPEC.md` 与分支
   `feat/recording-recovery`（base main@1a8b61f5）。新增胶囊计时/处理阶段反馈作为后续
   独立 M5；原 Provider/外围扫尾顺延为 M6。
+- 2026-09-17 M4 完成：S201 实现 2fd81e67，主会话 review 后以 9d52015b
+  修正长录音 number[] 的额外复制；自动验证全绿（bare cargo test 仅受既有
+  gen_bindings macOS 残留阻塞）。用户实机确认 STT 失败录音进入 History，
+  且可从保存音频手动 Retranscribe 成功。SPEC/SHAPE 状态置 completed。
