@@ -29,7 +29,6 @@ import {
 import { TrialCountdown } from "../common/TrialCountdown";
 import { maybeArrayElements } from "../settings/AIPostProcessingConfiguration";
 import { GpuMigrationDialog } from "./GpuMigrationDialog";
-import { SenderReceiverChip } from "./SenderReceiverChip";
 
 export type BaseHeaderProps = {
   logo?: React.ReactNode;
@@ -195,7 +194,6 @@ export const AppHeader = () => {
       <Box onClick={handleLogoClick} sx={{ cursor: "pointer" }}>
         <LogoWithText />
       </Box>
-      <SenderReceiverChip />
     </Stack>
   );
 

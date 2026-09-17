@@ -1,22 +1,8 @@
-#[cfg(target_os = "macos")]
-const TRAY_ICON_DEFAULT: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/icons/tray/menu-item-macos-36.png"
-));
-
-#[cfg(not(target_os = "macos"))]
 const TRAY_ICON_DEFAULT: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/icons/tray/menu-item-win-linux-36.png"
 ));
 
-#[cfg(target_os = "macos")]
-const TRAY_ICON_UPDATE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/icons/tray/update-macos-36.png"
-));
-
-#[cfg(not(target_os = "macos"))]
 const TRAY_ICON_UPDATE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/icons/tray/update-win-linux-36.png"
@@ -127,11 +113,6 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
             _ => {}
         });
 
-    #[cfg(target_os = "macos")]
-    {
-        tray_builder = tray_builder.icon_as_template(true);
-    }
-
     let _tray_icon = tray_builder.build(app)?;
 
     Ok(())
@@ -157,12 +138,6 @@ pub fn set_menu_icon(app: &tauri::AppHandle, variant: MenuIconVariant) -> Result
 
     if let Some(update_item) = UPDATE_MENU_ITEM.get() {
         let _ = update_item.set_enabled(is_update);
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        tray.set_icon_as_template(true)
-            .map_err(|err| err.to_string())?;
     }
 
     Ok(())

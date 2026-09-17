@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Voquill",
@@ -43,31 +42,14 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
       "icons/icon.ico"
     ],
     "resources": [
       "resources/*"
     ],
-    "macOS": {
-      "hardenedRuntime": true,
-      "minimumSystemVersion": "13.3",
-      "entitlements": "macos/Voquill.entitlements"
-    },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
-      }
-    },
-    "linux": {
-      "deb": {
-        "depends": ["libxdo3", "xdotool", "libvulkan1", "libgtk-layer-shell0", "wtype"]
-      },
-      "rpm": {
-        "depends": ["xdotool", "vulkan-loader", "gtk-layer-shell", "wtype"]
-      },
-      "appimage": {
-        "bundleMediaFramework": false
       }
     }
   },

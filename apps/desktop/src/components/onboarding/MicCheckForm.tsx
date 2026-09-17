@@ -7,7 +7,6 @@ import {
   goToOnboardingPage,
   setOnboardingPreferredMicrophone,
 } from "../../actions/onboarding.actions";
-import { setAllModesToCloud } from "../../actions/user.actions";
 import { produceAppState, useAppStore } from "../../store";
 import { trackButtonClick } from "../../utils/analytics.utils";
 import { AudioWaveform } from "../common/AudioWaveform";
@@ -20,7 +19,6 @@ import {
 
 export const MicCheckForm = () => {
   const theme = useTheme();
-  const isEnterprise = useAppStore((state) => state.isEnterprise);
 
   const [recordingState, setRecordingState] = useState<
     "idle" | "starting" | "recording" | "stopping"
@@ -32,9 +30,6 @@ export const MicCheckForm = () => {
 
   const audioLevels = useAppStore((state) => state.audioLevels);
   const overlayPhase = useAppStore((state) => state.overlayPhase);
-  const didSignUpWithAccount = useAppStore(
-    (state) => state.onboarding.didSignUpWithAccount,
-  );
 
   const isGlobalRecording =
     overlayPhase === "recording" || overlayPhase === "loading";
@@ -113,16 +108,7 @@ export const MicCheckForm = () => {
   const handleConfirm = async () => {
     trackButtonClick("onboarding_mic_looks_good");
     await stopRecording();
-    if (didSignUpWithAccount) {
-      if (isEnterprise) {
-        await setAllModesToCloud();
-        goToOnboardingPage("tutorial");
-      } else {
-        goToOnboardingPage("unlockedPro");
-      }
-    } else {
-      goToOnboardingPage("tutorial");
-    }
+    goToOnboardingPage("tutorial");
   };
 
   const form = (

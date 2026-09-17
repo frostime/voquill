@@ -1,4 +1,3 @@
-import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import {
   EnterpriseConfig,
@@ -9,20 +8,13 @@ import {
   User,
 } from "@voquill/types";
 import { getRec, listify } from "@voquill/utilities";
-import dayjs from "dayjs";
 import { isEqual } from "lodash-es";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { combineLatest, from, Observable, of } from "rxjs";
 import { showErrorSnackbar, showSnackbar } from "../../actions/app.actions";
 import { ensureRustSessionSync } from "../../actions/login.actions";
-import { loadPairedRemoteDevices } from "../../actions/paired-remote-device.actions";
 import { openUpgradePlanDialog } from "../../actions/pricing.actions";
-import {
-  refreshRemoteReceiverStatus,
-  startRemoteReceiver,
-} from "../../actions/remote-receiver.actions";
-import { handleRemoteFinalTextReceived } from "../../actions/remote-transcript.actions";
 import {
   checkForAppUpdates,
   dismissUpdateDialog,
@@ -32,16 +24,13 @@ import {
   migrateLocalUserToCloud,
   refreshCurrentUser,
   setActiveDictationLanguage,
-  setRemoteOutputEnabled,
-  setRemoteTargetDeviceId,
 } from "../../actions/user.actions";
-import { useAsyncData, useAsyncEffect } from "../../hooks/async.hooks";
+import { useAsyncEffect } from "../../hooks/async.hooks";
 import { useIntervalAsync, useKeyDownHandler } from "../../hooks/helper.hooks";
 import { useHotkeyFire } from "../../hooks/hotkey.hooks";
 import { useStreamWithSideEffects } from "../../hooks/stream.hooks";
 import { useTauriListen } from "../../hooks/tauri.hooks";
 import { useToastAction } from "../../hooks/toast.hooks";
-import { detectLocale } from "../../i18n";
 import {
   getAuthRepo,
   getConfigRepo,
@@ -60,7 +49,6 @@ import {
 import { getAppState, produceAppState, useAppStore } from "../../store";
 import { AuthUser } from "../../types/auth.types";
 import { OverlayPhase } from "../../types/overlay.types";
-import { CURRENT_COHORT, getMixpanel } from "../../utils/analytics.utils";
 import { registerMembers, registerUsers } from "../../utils/app.utils";
 import {
   getEnterpriseTarget,
@@ -73,11 +61,9 @@ import { ADD_TO_DICTIONARY_HOTKEY } from "../../utils/keyboard.utils";
 import { getLogger, initLogging } from "../../utils/log.utils";
 import { sendPillFlashMessage } from "../../utils/overlay.utils";
 import { isPermissionAuthorized } from "../../utils/permission.utils";
-import { getPlatform } from "../../utils/platform.utils";
 import { minutesToMilliseconds } from "../../utils/time.utils";
 import { buildTrayLanguageMenuModel } from "../../utils/tray-language.utils";
 import {
-  getEffectivePillVisibility,
   getMyUserPreferences,
   LOCAL_USER_ID,
 } from "../../utils/user.utils";
@@ -106,14 +92,6 @@ type BridgeHotkeyTriggerPayload = {
   hotkey: string;
 };
 
-type RemoteFinalTextReceivedPayload = {
-  senderDeviceId: string;
-  eventId: string;
-  text: string;
-  mode: string;
-  createdAt: string;
-};
-
 // Timeout for Firebase Auth initialization (handles cases where IndexedDB hangs on some Linux systems)
 const AUTH_READY_TIMEOUT_MS = 4_000;
 
@@ -136,7 +114,6 @@ export const AppSideEffects = () => {
   const authReadyRef = useRef(false);
   const isEnterprise = useAppStore((state) => state.isEnterprise);
   const updateInitializedRef = useRef(false);
-  const versionData = useAsyncData(getVersion, []);
   const allowDevTools = useAppStore(
     (state) => state.enterpriseConfig?.allowDevTools ?? true,
   );
@@ -255,14 +232,6 @@ export const AppSideEffects = () => {
       draft.keysHeld = payload.keys;
     });
   });
-
-  useTauriListen<RemoteFinalTextReceivedPayload>(
-    "remote_final_text_received",
-    async (payload) => {
-      await handleRemoteFinalTextReceived(payload);
-      await refreshRemoteReceiverStatus().catch(() => undefined);
-    },
-  );
 
   useEffect(() => {
     if (allowDevTools) {
@@ -423,25 +392,6 @@ export const AppSideEffects = () => {
     }
   }, [authReady, isEnterprise]);
 
-  useAsyncEffect(async () => {
-    if (initReady) {
-      await loadPairedRemoteDevices();
-      await refreshRemoteReceiverStatus();
-      const prefs = getMyUserPreferences(getAppState());
-      if (
-        prefs?.remoteTargetDeviceId &&
-        !getAppState().pairedRemoteDeviceById[prefs.remoteTargetDeviceId]
-      ) {
-        await setRemoteTargetDeviceId(null);
-        await setRemoteOutputEnabled(false);
-      }
-      const receiverStatus = getAppState().remoteReceiverStatus;
-      if (prefs?.remoteReceiverAutoStart && !receiverStatus?.enabled) {
-        await startRemoteReceiver(prefs.remoteReceiverPort ?? null);
-      }
-    }
-  }, [initReady]);
-
   useEffect(() => {
     if (streamReady && initReady && !initialized && enterpriseReady) {
       getLogger().info("App fully initialized");
@@ -481,106 +431,7 @@ export const AppSideEffects = () => {
     })();
   }, [userId, memberPlan, localUser, cloudUser]);
 
-  const auth = useAppStore((state) => state.auth);
-  const prevUserIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-
-    const mp = getMixpanel();
-    if (!mp) {
-      return;
-    }
-
-    const currentUserId = auth?.uid ?? null;
-    const prevUserId = prevUserIdRef.current;
-    if (prevUserId && !currentUserId) {
-      mp.reset();
-    }
-
-    const isPro = member?.plan === "pro";
-    const isFree = member?.plan === "free";
-    const isCommunity = !currentUserId;
-    const isTrial = member?.isOnTrial ?? false;
-    const isPaying = !isTrial && isPro;
-    const onboardedAt = cloudUser?.onboardedAt ?? localUser?.onboardedAt;
-    const daysSinceOnboarded = onboardedAt
-      ? dayjs().diff(dayjs(onboardedAt), "day")
-      : 0;
-    const platform = getPlatform();
-    const locale = detectLocale();
-    const onboarded = cloudUser?.onboarded ?? localUser?.onboarded ?? false;
-    const planStatus = member?.plan ?? "community";
-
-    if (currentUserId && currentUserId !== prevUserId) {
-      mp.identify(currentUserId);
-
-      mp.people.set_once({
-        $created: new Date().toISOString(),
-        initialPlatform: platform,
-        initialLocale: locale,
-        initialCohort: CURRENT_COHORT,
-      });
-
-      mp.register_once({
-        initialPlatform: platform,
-        initialLocale: locale,
-        initialCohort: CURRENT_COHORT,
-      });
-    }
-
-    mp.people.set({
-      $email: auth?.email ?? undefined,
-      $name: auth?.displayName ?? undefined,
-      planStatus,
-      isPro,
-      isFree,
-      isCommunity,
-      isTrial,
-      isPaying,
-      onboarded,
-      onboardedAt: onboardedAt ?? undefined,
-      activeSystemCohort: CURRENT_COHORT,
-      daysSinceOnboarded,
-      pillState: getEffectivePillVisibility(prefs?.dictationPillVisibility),
-      company: cloudUser?.company ?? undefined,
-      title: cloudUser?.title ?? undefined,
-      referralSource: cloudUser?.referralSource ?? undefined,
-      isEnterprise,
-    });
-
-    mp.register({
-      userId: currentUserId,
-      planStatus,
-      isPro,
-      isFree,
-      isCommunity,
-      platform,
-      locale,
-      onboarded,
-      daysSinceOnboarded,
-      activeSystemCohort: CURRENT_COHORT,
-      pillState: getEffectivePillVisibility(prefs?.dictationPillVisibility),
-    });
-
-    if (versionData.state === "success") {
-      mp.register({
-        appVersion: versionData.data,
-      });
-    }
-
-    prevUserIdRef.current = currentUserId;
-  }, [
-    initialized,
-    auth,
-    member,
-    cloudUser,
-    localUser,
-    prefs,
-    versionData,
-    isEnterprise,
-  ]);
+  // Mixpanel user-profile sync was removed with telemetry (analytics stubs).
 
   const handleAddToDictionary = useCallback(async () => {
     try {

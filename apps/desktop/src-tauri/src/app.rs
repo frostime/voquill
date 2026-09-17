@@ -10,12 +10,6 @@ fn handle_run_event(app_handle: &tauri::AppHandle, event: RunEvent) {
         RunEvent::ExitRequested { .. } => {
             let _ = app_handle.save_window_state(StateFlags::SIZE | StateFlags::POSITION);
         }
-        #[cfg(target_os = "macos")]
-        RunEvent::Reopen { .. } => {
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = crate::platform::window::surface_main_window(&window);
-            }
-        }
         _ => {}
     }
 }
@@ -94,12 +88,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
                         crate::platform::window::keep_webview_active(window.app_handle(), "main");
                         crate::platform::window::set_webview_keepalive(true);
                     }
-                    #[cfg(target_os = "macos")]
-                    {
-                        if let Err(err) = crate::platform::macos::dock::hide_dock_icon() {
-                            log::error!("Failed to hide dock icon: {err}");
-                        }
-                    }
                 }
                 // On Windows, WebView2 automatically freezes JS execution when the
                 // hosting window is occluded (fully covered by another window) or
@@ -170,12 +158,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
                         {
                             crate::platform::window::keep_webview_active(app.handle(), "main");
                             crate::platform::window::set_webview_keepalive(true);
-                        }
-                        #[cfg(target_os = "macos")]
-                        {
-                            if let Err(err) = crate::platform::macos::dock::hide_dock_icon() {
-                                log::error!("Failed to hide dock icon on autostart: {err}");
-                            }
                         }
                     }
                 }
@@ -318,7 +300,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::chat_message_update,
             crate::commands::chat_message_delete_many,
             crate::commands::check_app_location_writable,
-            crate::commands::download_and_open_mac_installer,
             crate::commands::get_system_volume,
             crate::commands::set_system_volume,
             crate::commands::auth_sign_in_with_custom_token,

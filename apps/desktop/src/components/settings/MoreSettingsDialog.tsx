@@ -31,10 +31,7 @@ import {
   normalizeDictationLimitMinutes,
   shouldEnableDictationLimit,
 } from "../../utils/dictation-limit.utils";
-import {
-  getAllowChangeStylingMode,
-  getAllowsMultiDeviceMode,
-} from "../../utils/enterprise.utils";
+import { getAllowChangeStylingMode } from "../../utils/enterprise.utils";
 import { getEffectiveStylingMode } from "../../utils/feature.utils";
 import { getIsVoquillCloudUser } from "../../utils/member.utils";
 import {
@@ -193,18 +190,9 @@ export const MoreSettingsDialog = () => {
     commitDictationLimitInput();
   };
 
-  const allowMultiDevice = useAppStore(getAllowsMultiDeviceMode);
-
   const handleStylingModeChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     void setStylingMode(value === "" ? null : (value as StylingMode));
-  };
-
-  const openMultiDeviceDialog = () => {
-    handleClose();
-    produceAppState((draft) => {
-      draft.settings.multiDeviceDialogOpen = true;
-    });
   };
 
   return (
@@ -412,20 +400,6 @@ export const MoreSettingsDialog = () => {
                     {intl.formatMessage({ defaultMessage: "Manual" })}
                   </MenuItem>
                 </Select>
-              }
-            />
-          )}
-
-          {allowMultiDevice && (
-            <SettingSection
-              title={<FormattedMessage defaultMessage="Multi-device" />}
-              description={
-                <FormattedMessage defaultMessage="Pair and manage remote devices for dictation." />
-              }
-              action={
-                <Button size="small" onClick={openMultiDeviceDialog}>
-                  <FormattedMessage defaultMessage="Configure" />
-                </Button>
               }
             />
           )}

@@ -5,17 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { resetOnboarding } from "../../actions/onboarding.actions";
 import { clearGotStartedAt } from "../../actions/user.actions";
 import { useAppStore } from "../../store";
-import { isEnterpriseFlavor } from "../../utils/env.utils";
 import { getShouldGoToOnboarding } from "../../utils/user.utils";
 import { Logo } from "../common/Logo";
-import EnterpriseWelcomePage from "../enterprise/EnterpriseWelcomePage";
 import { VectorField } from "./VectorField";
 
 export default function WelcomePage() {
-  if (isEnterpriseFlavor()) {
-    return <EnterpriseWelcomePage />;
-  }
-
   return <StandardWelcomePage />;
 }
 
@@ -23,16 +17,10 @@ function StandardWelcomePage() {
   const theme = useTheme();
   const nav = useNavigate();
   const shouldGotoOnboarding = useAppStore(getShouldGoToOnboarding);
-  const enterpriseName = useAppStore((state) => state.enterpriseLicense?.org);
 
   const handleGetStarted = () => {
     resetOnboarding();
     nav("/onboarding");
-  };
-
-  const handleLogin = () => {
-    resetOnboarding();
-    nav("/login?mode=login");
   };
 
   useEffect(() => {
@@ -85,14 +73,7 @@ function StandardWelcomePage() {
               </Typography>
             </Stack>
             <Typography variant="body1" color="text.secondary">
-              {enterpriseName ? (
-                <FormattedMessage
-                  defaultMessage="Voice OS for {enterpriseName}"
-                  values={{ enterpriseName }}
-                />
-              ) : (
-                <FormattedMessage defaultMessage="Voice is your new keyboard." />
-              )}
+              <FormattedMessage defaultMessage="Voice is your new keyboard." />
             </Typography>
           </Stack>
 
@@ -104,9 +85,6 @@ function StandardWelcomePage() {
               onClick={handleGetStarted}
             >
               <FormattedMessage defaultMessage="Get started" />
-            </Button>
-            <Button variant="text" size="large" fullWidth onClick={handleLogin}>
-              <FormattedMessage defaultMessage="I already have an account" />
             </Button>
           </Stack>
         </Stack>
