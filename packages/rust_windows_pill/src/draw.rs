@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::constants::*;
 use crate::gfx::Gfx;
 use crate::ipc::{Phase, PillPermission, PillStreaming};
@@ -94,13 +96,15 @@ fn draw_pill(gfx: &mut Gfx, state: &PillState, ww: f64, wh: f64) {
     gfx.stroke_rounded_rect(rx + 0.5, ry + 0.5, pill_w - 1.0, pill_h - 1.0, radius - 0.5,
         [1.0, 1.0, 1.0, BORDER_ALPHA], 1.0);
 
-    match state.phase.get() {
+    let phase = state.phase.get();
+    match phase {
         Phase::Recording if expand_t > 0.1 => {
             draw_waveform(gfx, rx, ry, pill_w, pill_h, expand_t, state);
             draw_edge_gradient(gfx, rx, ry, pill_w, pill_h, expand_t);
+            draw_recording_timer(gfx, state, rx, ry, pill_w, pill_h, expand_t);
         }
-        Phase::Loading if expand_t > 0.1 => {
-            draw_loading(gfx, rx, ry, pill_w, pill_h, expand_t, state);
+        phase if phase.is_processing() && expand_t > 0.1 => {
+            draw_processing_phase(gfx, state, phase, rx, ry, pill_w, pill_h, expand_t);
         }
         Phase::Idle if expand_t > 0.5 && (state.hovered.get() || state.assistant_active.get()) => {
             draw_idle_label(gfx, rx, ry, pill_w, pill_h, expand_t);
@@ -179,36 +183,116 @@ fn draw_edge_gradient(
     gfx.restore();
 }
 
-fn draw_loading(
-    gfx: &mut Gfx, rx: f64, ry: f64, pill_w: f64, pill_h: f64,
-    expand_t: f64, state: &PillState,
+fn draw_recording_timer(
+    gfx: &mut Gfx,
+    state: &PillState,
+    rx: f64,
+    ry: f64,
+    pill_w: f64,
+    pill_h: f64,
+    expand_t: f64,
 ) {
+    let timer_x = rx + pill_w - RECORDING_TIMER_WIDTH;
+    let elapsed = state
+        .recording_started_at
+        .get()
+        .map(|started_at| started_at.elapsed())
+        .unwrap_or_default();
+    let timer_text = format_recording_elapsed(elapsed);
+
     gfx.save();
-    gfx.clip_rounded_rect(rx, ry, pill_w, pill_h, lerp(COLLAPSED_RADIUS, EXPANDED_RADIUS, expand_t));
-
-    let bar_h = 2.0;
-    let bar_y = ry + (pill_h - bar_h) / 2.0;
-    let pad = pill_h * 0.1;
-    let track_x = rx + pad;
-    let track_w = pill_w - pad * 2.0;
-
-    // Track line
-    gfx.fill_rect(track_x, bar_y, track_w, bar_h, [1.0, 1.0, 1.0, 0.15 * expand_t]);
-
-    // Moving indicator
-    let indicator_w = track_w * LOADING_BAR_WIDTH_FRAC;
-    let offset = state.loading_offset.get();
-    let ind_x = track_x + (track_w + indicator_w) * offset - indicator_w;
-
-    let draw_left = ind_x.max(track_x);
-    let draw_right = (ind_x + indicator_w).min(track_x + track_w);
-    if draw_right > draw_left {
-        gfx.fill_rect(draw_left, bar_y, draw_right - draw_left, bar_h, [1.0, 1.0, 1.0, 0.7 * expand_t]);
-    }
-
+    gfx.clip_rounded_rect(
+        rx,
+        ry,
+        pill_w,
+        pill_h,
+        lerp(COLLAPSED_RADIUS, EXPANDED_RADIUS, expand_t),
+    );
+    gfx.fill_rect(
+        timer_x + 1.0,
+        ry + 1.0,
+        RECORDING_TIMER_WIDTH - 2.0,
+        pill_h - 2.0,
+        [0.0, 0.0, 0.0, 0.94 * expand_t],
+    );
+    gfx.fill_rect(
+        timer_x,
+        ry + 9.0,
+        1.0,
+        pill_h - 18.0,
+        [1.0, 1.0, 1.0, RECORDING_DIVIDER_ALPHA * expand_t],
+    );
     gfx.restore();
 
-    draw_edge_gradient(gfx, rx, ry, pill_w, pill_h, expand_t);
+    gfx.draw_monospace_text_centered(
+        &timer_text,
+        timer_x + 2.0,
+        ry,
+        RECORDING_TIMER_WIDTH - 4.0,
+        pill_h,
+        RECORDING_TIMER_FONT_SIZE,
+        true,
+        [1.0, 1.0, 1.0, 0.92 * expand_t],
+    );
+}
+
+fn draw_processing_phase(
+    gfx: &Gfx,
+    state: &PillState,
+    phase: Phase,
+    rx: f64,
+    ry: f64,
+    pill_w: f64,
+    pill_h: f64,
+    expand_t: f64,
+) {
+    let Some(label) = phase.label() else { return };
+    let (text_w, text_h) = gfx.measure_text(label, PROCESSING_FONT_SIZE, true);
+    let dots_w = PROCESSING_DOT_RADIUS * 6.0 + PROCESSING_DOT_GAP * 2.0;
+    let content_w = dots_w + PROCESSING_CONTENT_GAP + text_w;
+    let start_x = rx + (pill_w - content_w) / 2.0;
+    let center_y = ry + pill_h / 2.0;
+    let offset = state.processing_offset.get();
+
+    for index in 0..3 {
+        let pulse = ((offset + index as f64 * 0.2) % 1.0 * TAU).sin();
+        let alpha = (0.55 + pulse * 0.35).clamp(0.2, 0.9) * expand_t;
+        let cx = start_x
+            + PROCESSING_DOT_RADIUS
+            + index as f64 * (PROCESSING_DOT_RADIUS * 2.0 + PROCESSING_DOT_GAP);
+        gfx.fill_circle(cx, center_y, PROCESSING_DOT_RADIUS, [1.0, 1.0, 1.0, alpha]);
+    }
+
+    gfx.draw_text_top_left(
+        label,
+        start_x + dots_w + PROCESSING_CONTENT_GAP,
+        center_y - text_h / 2.0,
+        PROCESSING_FONT_SIZE,
+        true,
+        false,
+        [1.0, 1.0, 1.0, 0.9 * expand_t],
+    );
+}
+
+fn format_recording_elapsed(elapsed: Duration) -> String {
+    let total_seconds = elapsed.as_secs();
+    let minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
+    format!("{minutes:02}:{seconds:02}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_recording_elapsed;
+    use std::time::Duration;
+
+    #[test]
+    fn formats_recording_elapsed_as_total_minutes_and_seconds() {
+        assert_eq!(format_recording_elapsed(Duration::ZERO), "00:00");
+        assert_eq!(format_recording_elapsed(Duration::from_secs(9)), "00:09");
+        assert_eq!(format_recording_elapsed(Duration::from_secs(60)), "01:00");
+        assert_eq!(format_recording_elapsed(Duration::from_secs(6_000)), "100:00");
+    }
 }
 
 fn draw_idle_label(gfx: &Gfx, rx: f64, ry: f64, pill_w: f64, pill_h: f64, expand_t: f64) {

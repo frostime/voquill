@@ -182,6 +182,7 @@ export class DictationStrategy extends BaseStrategy {
           const result = await postProcessTranscript({
             rawTranscript: sanitizedTranscript,
             toneId: args.toneId,
+            onGenerationStart: () => this.setPhase("refining"),
           });
 
           transcript = result.transcript;

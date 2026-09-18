@@ -36,7 +36,6 @@ pub(crate) const WAVE_PHASE_GAIN: f64 = 0.32;
 pub(crate) const MIN_AMPLITUDE: f64 = 0.03;
 pub(crate) const MAX_AMPLITUDE: f64 = 1.3;
 pub(crate) const STROKE_WIDTH: f64 = 1.6;
-pub(crate) const PROCESSING_BASE_LEVEL: f64 = 0.16;
 
 pub(crate) struct WaveConfig {
     pub(crate) frequency: f64,
@@ -51,9 +50,15 @@ pub(crate) const WAVE_CONFIGS: &[WaveConfig] = &[
     WaveConfig { frequency: 1.25, multiplier: 1.05, phase_offset: 1.7, opacity: 0.56 },
 ];
 
-// ── Loading ──────────────────────────────────────────────────────
-pub(crate) const LOADING_BAR_WIDTH_FRAC: f64 = 0.4;
-pub(crate) const LOADING_SPEED: f64 = 0.015;
+// ── Recording timer / processing phase ──────────────────────────
+pub(crate) const RECORDING_TIMER_WIDTH: f64 = 40.0;
+pub(crate) const RECORDING_TIMER_FONT_SIZE: f64 = 10.0;
+pub(crate) const RECORDING_DIVIDER_ALPHA: f64 = 0.14;
+pub(crate) const PROCESSING_DOT_RADIUS: f64 = 1.5;
+pub(crate) const PROCESSING_DOT_GAP: f64 = 3.0;
+pub(crate) const PROCESSING_CONTENT_GAP: f64 = 8.0;
+pub(crate) const PROCESSING_FONT_SIZE: f64 = 10.5;
+pub(crate) const PROCESSING_ANIMATION_SPEED: f64 = 0.015;
 
 // ── Assistant panel ──────────────────────────────────────────────
 pub(crate) const PANEL_COMPACT_WIDTH: f64 = 424.0;

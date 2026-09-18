@@ -66,8 +66,7 @@ export const MicrophoneTester = ({
   const previewUrlRef = useRef<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const isGlobalRecording =
-    overlayPhase === "recording" || overlayPhase === "loading";
+  const isGlobalRecording = overlayPhase !== "idle";
   const isTestRunning = testState === "recording";
   const isTestLoading = testState === "starting";
   const isTestStopping = testState === "stopping";

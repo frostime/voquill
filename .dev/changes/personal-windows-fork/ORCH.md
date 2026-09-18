@@ -191,10 +191,12 @@ END
 
 ---
 
-# M5 — 胶囊进度反馈 `TODO`  << CURRENT
+# M5 — 胶囊进度反馈 `IN PROGRESS`  << CURRENT
 
     REQUIRES [M4 完成]：使用稳定后的 recording lifecycle 阶段边界，避免重复修改。
-    必须作为独立 change / branch 实施，不与 recording recovery 混合。
+    独立 change：`.dev/changes/pill-progress-feedback/`。
+    独立分支：`feat/pill-progress-feedback`（基于 main@b3653c3b）。
+    2026-09-18 UI prototype 与行为方向获用户确认；DEV-SPEC/SHAPE accepted。
 
 [录音计时]
     Recording 阶段在 native Windows pill 显示 MM:SS；native 单调时钟计时，

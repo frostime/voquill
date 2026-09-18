@@ -53,6 +53,7 @@ export type PostProcessInput = {
   rawTranscript: string;
   toneId: Nullable<string>;
   dictationLanguage?: string;
+  onGenerationStart?: () => void | Promise<void>;
 };
 
 export type PostProcessMetadata = {
@@ -161,6 +162,7 @@ export const postProcessTranscript = async ({
   rawTranscript,
   toneId,
   dictationLanguage: dictationLanguageOverride,
+  onGenerationStart,
 }: PostProcessInput): Promise<PostProcessResult> => {
   const state = getAppState();
 
@@ -213,6 +215,11 @@ export const postProcessTranscript = async ({
       ppSystem.length,
     );
 
+    try {
+      await onGenerationStart?.();
+    } catch (error) {
+      getLogger().warning(`Generation start observer failed: ${error}`);
+    }
     const postprocessStart = performance.now();
     getLogger().verbose("Calling LLM for post-processing");
     const genOutput = await genRepo.generateText({

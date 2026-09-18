@@ -96,7 +96,9 @@ pub fn notify_phase(app: &tauri::AppHandle, phase: &OverlayPhase) {
         let phase_str = match phase {
             OverlayPhase::Idle => "idle",
             OverlayPhase::Recording => "recording",
-            OverlayPhase::Loading => "loading",
+            OverlayPhase::Saving => "saving",
+            OverlayPhase::Transcribing => "transcribing",
+            OverlayPhase::Refining => "refining",
         };
         pill.send(&format!(r#"{{"type":"phase","phase":"{phase_str}"}}"#));
     }

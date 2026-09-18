@@ -285,6 +285,11 @@ export const DictationSideEffects = () => {
     clearRecordingTimers();
     restoreSystemVolume();
 
+    const shouldShowSaving =
+      strategyRef.current?.shouldStoreTranscript() === true &&
+      !getAppState().userPrefs?.incognitoModeEnabled;
+    const initialProcessingPhase = shouldShowSaving ? "saving" : "transcribing";
+
     const [audio, a11yInfo, appTarget] = await getLogger().stopwatch(
       "stopRecording",
       async () => {
@@ -296,7 +301,7 @@ export const DictationSideEffects = () => {
 
           getLogger().verbose("Invoking stop_recording and fetching a11y info");
           const [, outAudio, outA11yInfo, outAppTarget] = await Promise.all([
-            strategyRef.current?.setPhase("loading"),
+            strategyRef.current?.setPhase(initialProcessingPhase),
             invoke<StopRecordingResponse>("stop_recording"),
             invoke<TextFieldInfo>("get_text_field_info").catch((error) => {
               getLogger().verbose(`Failed to get text field info: ${error}`);
@@ -352,6 +357,10 @@ export const DictationSideEffects = () => {
       ? await beginRecordingLifecycle(audio)
       : null;
     let persistedTranscription = lifecycle?.transcription ?? null;
+
+    if (shouldShowSaving) {
+      await strategy.setPhase("transcribing");
+    }
 
     getLogger().info("Finalizing transcription session");
     trackAppUsed(appTarget?.name ?? "Unknown");
@@ -604,12 +613,13 @@ export const DictationSideEffects = () => {
         getLogger().info(
           `Starting recording (mic=${preferredMicrophone ?? "default"})`,
         );
-        const [, startRecordingResult] = await Promise.all([
-          strategy.setPhase("recording"),
-          invoke<StartRecordingResponse>("start_recording", {
+        const startRecordingResult = await invoke<StartRecordingResponse>(
+          "start_recording",
+          {
             args: { preferredMicrophone },
-          }),
-        ]);
+          },
+        );
+        await strategy.setPhase("recording");
 
         const sampleRate = startRecordingResult.sampleRate;
         getLogger().verbose(`Recording started (sampleRate=${sampleRate})`);

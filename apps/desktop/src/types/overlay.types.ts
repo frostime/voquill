@@ -1,7 +1,12 @@
 import type { ToolPermissionResolution } from "@voquill/types";
 import type { AppState } from "../state/app.state";
 
-export type OverlayPhase = "idle" | "recording" | "loading";
+export type OverlayPhase =
+  | "idle"
+  | "recording"
+  | "saving"
+  | "transcribing"
+  | "refining";
 
 export type OverlayResolvePermissionPayload = {
   permissionId: string;

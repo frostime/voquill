@@ -424,12 +424,14 @@ impl Gfx {
         }
     }
 
-    fn text_format(&self, size: f64, bold: bool, italic: bool) -> IDWriteTextFormat {
+    fn text_format(
+        &self, family: PCWSTR, size: f64, bold: bool, italic: bool,
+    ) -> IDWriteTextFormat {
         unsafe {
             let weight = if bold { DWRITE_FONT_WEIGHT_BOLD } else { DWRITE_FONT_WEIGHT_NORMAL };
             let style = if italic { DWRITE_FONT_STYLE_ITALIC } else { DWRITE_FONT_STYLE_NORMAL };
             self.dw_factory.CreateTextFormat(
-                w!("Segoe UI"),
+                family,
                 None,
                 weight,
                 style,
@@ -441,7 +443,7 @@ impl Gfx {
     }
 
     pub(crate) fn measure_text(&self, text: &str, size: f64, bold: bool) -> (f64, f64) {
-        let format = self.text_format(size, bold, false);
+        let format = self.text_format(w!("Segoe UI"), size, bold, false);
         let wide: Vec<u16> = text.encode_utf16().collect();
         unsafe {
             let layout = self.dw_factory.CreateTextLayout(
@@ -458,7 +460,7 @@ impl Gfx {
         size: f64, bold: bool, italic: bool, rgba: [f64; 4],
     ) {
         let brush = self.brush(rgba);
-        let format = self.text_format(size, bold, italic);
+        let format = self.text_format(w!("Segoe UI"), size, bold, italic);
         let wide: Vec<u16> = text.encode_utf16().collect();
         unsafe {
             self.rt.DrawText(
@@ -483,6 +485,37 @@ impl Gfx {
         let tx = x + (w - tw) / 2.0;
         let ty = y + (h - th) / 2.0;
         self.draw_text_top_left(text, tx, ty, size, bold, false, rgba);
+    }
+
+    pub(crate) fn draw_monospace_text_centered(
+        &self, text: &str, x: f64, y: f64, w: f64, h: f64,
+        size: f64, bold: bool, rgba: [f64; 4],
+    ) {
+        let format = self.text_format(w!("Consolas"), size, bold, false);
+        let wide: Vec<u16> = text.encode_utf16().collect();
+        unsafe {
+            let layout = self.dw_factory.CreateTextLayout(
+                &wide, &format, 10000.0, 1000.0,
+            ).unwrap();
+            let mut metrics = DWRITE_TEXT_METRICS::default();
+            layout.GetMetrics(&mut metrics).ok();
+            let text_w = metrics.widthIncludingTrailingWhitespace as f64;
+            let text_h = metrics.height as f64;
+            let brush = self.brush(rgba);
+            self.rt.DrawText(
+                &wide,
+                &format,
+                &D2D_RECT_F {
+                    left: (x + (w - text_w) / 2.0) as f32,
+                    top: (y + (h - text_h) / 2.0) as f32,
+                    right: (x + w) as f32,
+                    bottom: (y + h) as f32,
+                },
+                &brush,
+                D2D1_DRAW_TEXT_OPTIONS_NONE,
+                DWRITE_MEASURING_MODE_NATURAL,
+            );
+        }
     }
 }
 
