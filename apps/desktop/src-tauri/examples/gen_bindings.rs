@@ -105,7 +105,6 @@ fn main() {
         chat_message_update,
         chat_message_delete_many,
         check_app_location_writable,
-        download_and_open_mac_installer,
         get_system_volume,
         set_system_volume,
         auth_sign_in_with_custom_token,
