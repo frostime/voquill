@@ -1892,15 +1892,6 @@ pub fn set_tray_title(app: AppHandle, title: Option<String>) -> Result<(), Strin
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_menu_icon(
-    app: AppHandle,
-    variant: crate::system::tray::MenuIconVariant,
-) -> Result<(), String> {
-    crate::system::tray::set_menu_icon(&app, variant)
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn set_tray_language_menu(
     app: AppHandle,
     items: Vec<crate::system::tray::TrayLanguageMenuItem>,

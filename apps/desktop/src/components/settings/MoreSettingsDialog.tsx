@@ -17,7 +17,6 @@ import { FormattedMessage, useIntl } from "react-intl";
 import {
   setDictationLimitMinutes,
   setDictationPillVisibility,
-  setIgnoreUpdateDialog,
   setIncognitoModeEnabled,
   setIncognitoModeIncludeInStats,
   setMenuBarIconHidden,
@@ -45,7 +44,6 @@ export const MoreSettingsDialog = () => {
   const intl = useIntl();
   const [
     open,
-    ignoreUpdateDialog,
     incognitoModeEnabled,
     incognitoIncludeInStats,
     dictationPillVisibility,
@@ -64,7 +62,6 @@ export const MoreSettingsDialog = () => {
     const transcriptionPrefs = getTranscriptionPrefs(state);
     return [
       state.settings.moreSettingsDialogOpen,
-      prefs?.ignoreUpdateDialog ?? false,
       prefs?.incognitoModeEnabled ?? false,
       prefs?.incognitoModeIncludeInStats ?? false,
       getEffectivePillVisibility(prefs?.dictationPillVisibility),
@@ -123,11 +120,6 @@ export const MoreSettingsDialog = () => {
     produceAppState((draft) => {
       draft.settings.moreSettingsDialogOpen = false;
     });
-  };
-
-  const handleToggleShowUpdates = (event: ChangeEvent<HTMLInputElement>) => {
-    const showUpdates = event.target.checked;
-    void setIgnoreUpdateDialog(!showUpdates);
   };
 
   const handleToggleIncognitoMode = (event: ChangeEvent<HTMLInputElement>) => {
@@ -233,22 +225,6 @@ export const MoreSettingsDialog = () => {
               }
             />
           )}
-
-          <SettingSection
-            title={
-              <FormattedMessage defaultMessage="Automatically show updates" />
-            }
-            description={
-              <FormattedMessage defaultMessage="Automatically open the update window when a new version is available." />
-            }
-            action={
-              <Switch
-                edge="end"
-                checked={!ignoreUpdateDialog}
-                onChange={handleToggleShowUpdates}
-              />
-            }
-          />
 
           <SettingSection
             title={<FormattedMessage defaultMessage="Show menu bar icon" />}

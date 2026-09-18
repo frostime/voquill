@@ -16,11 +16,6 @@ import { showErrorSnackbar, showSnackbar } from "../../actions/app.actions";
 import { ensureRustSessionSync } from "../../actions/login.actions";
 import { openUpgradePlanDialog } from "../../actions/pricing.actions";
 import {
-  checkForAppUpdates,
-  dismissUpdateDialog,
-  installAvailableUpdate,
-} from "../../actions/updater.actions";
-import {
   migrateLocalUserToCloud,
   refreshCurrentUser,
   setActiveDictationLanguage,
@@ -61,7 +56,6 @@ import { ADD_TO_DICTIONARY_HOTKEY } from "../../utils/keyboard.utils";
 import { getLogger, initLogging } from "../../utils/log.utils";
 import { sendPillFlashMessage } from "../../utils/overlay.utils";
 import { isPermissionAuthorized } from "../../utils/permission.utils";
-import { minutesToMilliseconds } from "../../utils/time.utils";
 import { buildTrayLanguageMenuModel } from "../../utils/tray-language.utils";
 import {
   getMyUserPreferences,
@@ -113,7 +107,6 @@ export const AppSideEffects = () => {
   const tokensRefreshedRef = useRef(false);
   const authReadyRef = useRef(false);
   const isEnterprise = useAppStore((state) => state.isEnterprise);
-  const updateInitializedRef = useRef(false);
   const allowDevTools = useAppStore(
     (state) => state.enterpriseConfig?.allowDevTools ?? true,
   );
@@ -496,23 +489,6 @@ export const AppSideEffects = () => {
     },
   });
 
-  // check for app updates every minute
-  useIntervalAsync(
-    minutesToMilliseconds(1),
-    async () => {
-      if (!updateInitializedRef.current) {
-        dismissUpdateDialog();
-        updateInitializedRef.current = true;
-      }
-
-      const available = await checkForAppUpdates();
-      invoke("set_menu_icon", {
-        variant: available ? "update" : "default",
-      }).catch(console.error);
-    },
-    [],
-  );
-
   useToastAction(async (payload) => {
     if (payload.action === "upgrade") {
       surfaceMainWindow();
@@ -525,11 +501,6 @@ export const AppSideEffects = () => {
     } else if (payload.action === "surface_window") {
       surfaceMainWindow();
     }
-  });
-
-  useTauriListen<void>("tray-install-update", () => {
-    surfaceMainWindow();
-    installAvailableUpdate();
   });
 
   useTauriListen<void>("tray-copy-last-transcript", async () => {

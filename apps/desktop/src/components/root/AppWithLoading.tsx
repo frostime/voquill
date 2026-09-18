@@ -7,7 +7,6 @@ import { DictationSideEffects } from "./DictationSideEffects";
 import { KeyPressSideEffects } from "./KeyPressSideEffects";
 import { MigratorSideEffects } from "./MigratorSideEffects";
 import { LoadingApp } from "./LoadingApp";
-import { UpdateDialog } from "./UpdateDialog";
 
 export const AppWithLoading = () => {
   const initialized = useAppStore((state) => state.initialized);
@@ -17,7 +16,6 @@ export const AppWithLoading = () => {
     <>
       {hotkeyStrategy === "bridge" && <KeyPressSideEffects />}
       <AppSideEffects />
-      <UpdateDialog />
       <MigratorSideEffects />
       <DictationSideEffects />
       <AffordancesSideEffects />

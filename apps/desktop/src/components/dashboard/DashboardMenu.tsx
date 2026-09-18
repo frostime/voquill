@@ -16,7 +16,6 @@ import { useAppStore } from "../../store";
 import { getIsAssistantModeEnabled } from "../../utils/assistant-mode.utils";
 import { ListTile } from "../common/ListTile";
 import { DiscordListTile } from "./DiscordListTile";
-import { UpdateListTile } from "./UpdateListTile";
 
 const settingsPath = "/dashboard/settings";
 
@@ -34,9 +33,6 @@ export const DashboardMenu = ({ onChoose }: DashboardMenuProps) => {
   const location = useLocation();
   const nav = useNavigate();
   const isEnterprise = useAppStore((state) => state.isEnterprise);
-  const isUpdateAvailable = useAppStore(
-    (state) => state.updater.status === "ready",
-  );
   const assistantModeEnabled = useAppStore(getIsAssistantModeEnabled);
 
   const navItems = useMemo<NavItem[]>(
@@ -102,7 +98,6 @@ export const DashboardMenu = ({ onChoose }: DashboardMenuProps) => {
     <Stack alignItems="stretch" sx={{ height: "100%" }}>
       <Box sx={{ flexGrow: 1, overflowY: "auto" }}>{list}</Box>
       <Box sx={{ mt: 2, p: 2 }}>
-        {isUpdateAvailable && <UpdateListTile />}
         {isEnterprise ? (
           <ListTile
             onClick={() => openUrl("mailto:support@voquill.com")}

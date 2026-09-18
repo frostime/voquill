@@ -32,7 +32,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
     "externalBin": [
       "binaries/rust-transcription-cpu",
       "binaries/rust-transcription-gpu"
@@ -57,13 +56,6 @@
       "preload": [
         "sqlite:voquill.db"
       ]
-    },
-    "updater": {
-      "endpoints": [],
-      "pubkey": "__UPDATER_PUBLIC_KEY__",
-      "windows": {
-        "installMode": "passive"
-      }
     }
   }
 }
