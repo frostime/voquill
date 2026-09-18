@@ -224,16 +224,33 @@ END
 
 ---
 
-# M6 — Provider 与外围收尾 `TODO`  << CURRENT
+# M6 — Provider 与外围收尾 `IN PROGRESS`  << CURRENT
 
-    REQUIRES [M5 完成]。
+    REQUIRES [M5 完成]：DONE。
+    2026-09-18 用户决策：M6 按"档位 1（轻）"推进——只清理不可达分支、死文件与
+    stale docs/scripts；不动 package.json / lockfile / workspace 包；updater、
+    release/打包、installer 一律推迟到后续独立的"项目后期维护"议题。
+    独立分支：`chore/peripheral-cleanup`（基于 main@95b84cb0）。
+    已提交：40c911be（gen_bindings 残留）、31b3f311（Linux/Docker 文档）、
+    5f218f9b（免费功能 repo 固定为 local）。
 
-[Provider selection 清理]（宽容模式同样适用）
+[Provider selection 清理]（宽容模式同样适用）`PARTIAL`
     仅删除 M3 拆除后已不再可用/不再可达的 provider 分支（cloud/enterprise path），
     保持 repos/index.ts 既有结构，不做重排；
     BYOK/local providers 保留、行为不变。
     不主动抽 createTranscriptionProvider/createGenerationProvider；
     仅当删除使 factory 出现编译或运行问题时做最小修复。
+
+    已完成（5f218f9b）：免费功能侧不再分支。`getUserRepo` / `getTermRepo` /
+    `getToneRepo` 固定返回 Local，并删除因此失去全部引用的 CloudTermRepo /
+    EnterpriseTermRepo / CloudToneRepo / EnterpriseToneRepo / EnterpriseUserRepo。
+    实际行为不变：fork 内 isLoggedIn() 与 isEnterprise() 均不可达。
+
+    待定（需先定范围）：商业侧 accessor（member / stripe / tenant / config /
+    enterprise / auth）与两处 `prefs.mode === "cloud"` 分支仍保留 `isEnterprise()`；
+    它们的 caller 是 M3 有意保留的商业死代码（login.actions、member.actions、
+    price.utils、AppSideEffects 片段、SettingsPage 片段）。要一并删除就会触碰那批
+    死代码，改动面与风险属于原"档位 2"，已在下方 OPEN 中提出待用户决定。
 
 [外围清理]
     INDEPENDENT
@@ -263,6 +280,13 @@ END
 ---
 
 # OPEN 事项
+
+OPEN M6 剩余范围：是否继续删除商业侧 cloud/enterprise 死代码（原"档位 2"）
+    现状：免费功能已固定为 local；商业 accessor 与其 dead caller（login/member/stripe/
+    price/AppSideEffects/SettingsPage 片段、member/stripe/tenant/enterprise/auth repo）
+    仍在。删干净后才能真正移除 firebase / mixpanel / @voquill/pricing /
+    @voquill/functions 依赖与 firemix / pricing 包。
+    2026-09-18 用户选择先做档位 1；档位 2 是否执行待定。
 
 RESOLVED Remote pairing / remote output 功能去留 → 删除（2026-09-16 用户决策）
     对端是 mobile（产品线已删），功能永久不可用。纳入 M3 [删除 remote pairing / remote output 功能]。
@@ -347,3 +371,14 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
   可见）；SPEC/SHAPE 置 completed；CURRENT 移至 M6。逐项人工复验（Verbatim 无 Refining、
   连续录音计时归零、Agent 路径、Saving/Transcribing/Refining 时序）未单独记录，
   其行为由自动化测试覆盖；SHAPE 的实际偏差已记入 M5 段内。
+- 2026-09-18 M6 启动（档位 1）：建立分支 `chore/peripheral-cleanup`（base main@95b84cb0）。
+  三个提交：① 40c911be 删除 `examples/gen_bindings.rs` 中已不存在的
+  `download_and_open_mac_installer`，使 bare `cargo test` 恢复通过（此前只有
+  `cargo test --lib` 通过）；② 31b3f311 删除与个人 Windows fork 无关的
+  `docs/wayland-hotkeys-wlroots.md`、`docs/docker.md`；③ 5f218f9b 把
+  getUserRepo/getTermRepo/getToneRepo 固定为 Local 并删除随之失去引用的
+  cloud/enterprise repo 类。
+  验证：tsc 通过、294 TS 单测通过、oxlint 通过、`cargo test` 全绿（32 lib tests）。
+  注意：scoped `prettier --check` 仍对改动文件报差异，但未改动的文件同样报错——
+  这是仓库既有的 CRLF 工作区与 prettier 配置差异（基线 346 文件），非本次引入。
+  档位 1 未完成的商业侧死代码与依赖清理已登记为 OPEN。
