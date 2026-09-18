@@ -78,6 +78,12 @@ last_reviewed_upstream: ef8572a3
 - **与上游差别**：`OverlayPhase` 由 `idle/recording/loading` 扩为 `idle/recording/saving/transcribing/refining`；录音计时由原生 pill 用单调时钟本地计算，不经 IPC 每秒推送。上游只有单一 `loading` 态。
 - **同步注意**：上游对 overlay phase、pill 绘制（`packages/rust_windows_pill`）的改动需手工融合，保留五个阶段与本地计时。`3286491f` 的修正原因：原实现用 0.94 黑面板覆盖计时区，在圆角处盖掉胶囊描边并与胶囊本体分层；正确做法是单一表面 + 波形 alpha 淡出。
 
+### 胶囊 DPI 适配
+
+- **提交**：`559979d8`（10.0.3）
+- **与上游差别**：原生 pill 声明 Per-Monitor V2 DPI 感知，但窗口/画布/布局常量全部是固定物理像素，在高缩放屏幕上胶囊缩小一半。本 fork 以 `monitor DPI / 96` 为 scale：窗口与 DIB 画布乘 scale，D2D 渲染目标固定 96 DPI，`begin_frame` 以 scale 为基础变换（绘制代码逻辑坐标不变），鼠标坐标除以 scale，edit 输入控件字体/边距随 scale 重建，跨 DPI 显示器移动时（`reposition_to_cursor_monitor` 轮询）动态重算。上游始终 scale=1。
+- **同步注意**：上游对 `packages/rust_windows_pill` 的尺寸/布局改动可直接融合（内部坐标仍是逻辑像素）；但 pill.rs 里 `initial_position`/`reposition_to_cursor_monitor`/`apply_scale`/`apply_edit_dpi` 与 state.rs 的 `dpi_scale` 系列是本地新增，冲突时以保留 scale 边界换算为准。
+
 ### 实时输出的风格解析
 
 - **提交**：`df4b9871`（10.0.2）

@@ -5,7 +5,11 @@
 
 代码层面的分叉差异（哪些实现不能被上游同步覆盖）记在 [`.dev/docs/upstream-divergence.md`](.dev/docs/upstream-divergence.md)。
 
-## [Unreleased]
+## [10.0.3] - 2026-09-19
+
+### Fixed
+
+- 原生胶囊（pill）在高缩放屏幕上显示过小：进程声明了 Per-Monitor V2 DPI 感知，但窗口、画布与布局全部使用固定物理像素，200% 缩放下整体只有设计尺寸的一半。现在按显示器 DPI 缩放窗口与渲染（矢量文字清晰），跨不同缩放比例的显示器移动时自动跟随，输入框字体与边距同步缩放。
 
 ## [10.0.2] - 2026-09-18
 
@@ -51,7 +55,8 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.2...HEAD
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.3...HEAD
+[10.0.3]: https://github.com/frostime/voquill/compare/v10.0.2...v10.0.3
 [10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2
 [10.0.1]: https://github.com/frostime/voquill/compare/v10.0.0...v10.0.1
 [10.0.0]: https://github.com/frostime/voquill/releases/tag/v10.0.0
