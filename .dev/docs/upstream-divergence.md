@@ -80,7 +80,7 @@ last_reviewed_upstream: ef8572a3
 
 ### 实时输出的风格解析
 
-- **提交**：`df4b9871`（未发布）
+- **提交**：`df4b9871`（10.0.2）
 - **与上游差别**：
   - 逐字实时输出的门控改用 `getDictationToneId()` 解析当前风格，因此在"按应用自动选风格"（Based on app）下也能生效。上游该处调用 `getToneIdToUse(state)` 且不传 app 风格，导致该模式下风格恒为 null、功能永不触发。
   - 实时输出开关由 `getTranscriptionSupportsStreaming()` 门控：转写方式不支持流式时禁用并说明原因。上游无条件显示开关，不支持的供应商下静默失效。
@@ -112,7 +112,7 @@ last_reviewed_upstream: ef8572a3
 
 上游没有对应物的功能细节只在 `CHANGELOG.md`，这里留一行索引，便于知道哪些行为在上游是找不到的。
 
-- 字典导出为 txt（一个词一行）——未发布（`e85f5fb5`）
+- 字典导出为 txt（一个词一行）——10.0.2（`e85f5fb5`）
 
 ## 五、上游同步规则
 

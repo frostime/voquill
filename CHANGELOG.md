@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [10.0.2] - 2026-09-18
+
 ### Added
 
 - 字典页新增"导出"按钮：把词条导出为 txt，一个词一行（顺序与页面一致，空词条跳过）。替换规则的词只导出原始文本。
@@ -49,6 +51,7 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.1...HEAD
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.2...HEAD
+[10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2
 [10.0.1]: https://github.com/frostime/voquill/compare/v10.0.0...v10.0.1
 [10.0.0]: https://github.com/frostime/voquill/releases/tag/v10.0.0
