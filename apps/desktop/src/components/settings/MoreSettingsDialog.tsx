@@ -37,6 +37,7 @@ import {
   getEffectivePillVisibility,
   getMyUserPreferences,
   getTranscriptionPrefs,
+  getTranscriptionSupportsStreaming,
 } from "../../utils/user.utils";
 import { SettingSection } from "../common/SettingSection";
 
@@ -57,6 +58,7 @@ export const MoreSettingsDialog = () => {
     disableAutoStyleLoading,
     isCloudUser,
     menuBarIconHidden,
+    supportsRealtimeOutput,
   ] = useAppStore((state) => {
     const prefs = getMyUserPreferences(state);
     const transcriptionPrefs = getTranscriptionPrefs(state);
@@ -75,6 +77,7 @@ export const MoreSettingsDialog = () => {
       state.local.disableAutoStyleLoading ?? false,
       getIsVoquillCloudUser(state),
       prefs?.menuBarIconHidden ?? false,
+      getTranscriptionSupportsStreaming(state),
     ] as const;
   });
   const [dictationLimitInput, setDictationLimitInput] = useState(
@@ -270,12 +273,21 @@ export const MoreSettingsDialog = () => {
           <SettingSection
             title={<FormattedMessage defaultMessage="Real-time output" />}
             description={
-              <FormattedMessage defaultMessage="Stream dictation text as you speak instead of pasting all at once when you stop. Only applies to Verbatim mode with supported providers." />
+              <>
+                <FormattedMessage defaultMessage="Stream dictation text as you speak instead of pasting all at once when you stop. Only applies to Verbatim mode with supported providers." />
+                {!supportsRealtimeOutput && (
+                  <>
+                    {" "}
+                    <FormattedMessage defaultMessage="Your current transcription setup cannot stream, so this has no effect: it needs Deepgram, ElevenLabs or AssemblyAI as the transcription provider." />
+                  </>
+                )}
+              </>
             }
             action={
               <Switch
                 edge="end"
                 checked={realtimeOutputEnabled}
+                disabled={!supportsRealtimeOutput}
                 onChange={handleToggleRealtimeOutput}
               />
             }

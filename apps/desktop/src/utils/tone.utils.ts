@@ -341,3 +341,18 @@ export const getToneIdToUse = (
     return opts?.currentAppToneId ?? null;
   }
 };
+
+/**
+ * The style a dictation will actually use, resolved from the app being dictated
+ * into. Streaming output and post-processing both gate on this value, so they
+ * must not resolve it separately.
+ */
+export const getDictationToneId = (
+  state: AppState,
+  currentAppTargetId: Nullable<string>,
+): Nullable<string> => {
+  const appTarget = currentAppTargetId
+    ? getRec(state.appTargetById, currentAppTargetId)
+    : null;
+  return getToneIdToUse(state, { currentAppToneId: appTarget?.toneId ?? null });
+};

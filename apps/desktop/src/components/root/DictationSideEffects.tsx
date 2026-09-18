@@ -83,9 +83,9 @@ import {
 import { getLogger } from "../../utils/log.utils";
 import {
   getActiveManualToneIds,
+  getDictationToneId,
   getManuallySelectedToneId,
   getToneById,
-  getToneIdToUse,
 } from "../../utils/tone.utils";
 import {
   getEffectivePillVisibility,
@@ -369,9 +369,7 @@ export const DictationSideEffects = () => {
       saveManualStyleForApp(appTarget);
     }
 
-    const toneId = getToneIdToUse(getAppState(), {
-      currentAppToneId: appTarget?.toneId ?? null,
-    });
+    const toneId = getDictationToneId(getAppState(), appTarget?.id ?? null);
 
     let transcribeResult;
     try {

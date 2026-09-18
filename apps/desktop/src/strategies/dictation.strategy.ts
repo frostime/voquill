@@ -22,7 +22,7 @@ import {
   applyReplacements,
   applySymbolConversions,
 } from "../utils/string.utils";
-import { getToneIdToUse, VERBATIM_TONE_ID } from "../utils/tone.utils";
+import { getDictationToneId, VERBATIM_TONE_ID } from "../utils/tone.utils";
 import {
   getEffectivePostProcessingMode,
   getEffectiveTranscriptionMode,
@@ -57,8 +57,10 @@ export class DictationStrategy extends BaseStrategy {
 
     const realtimeEnabled =
       getMyUserPreferences(state)?.realtimeOutputEnabled ?? false;
-    const toneId = getToneIdToUse(state);
-    if (!realtimeEnabled || toneId !== VERBATIM_TONE_ID) {
+    if (
+      !realtimeEnabled ||
+      getDictationToneId(state, this.currentAppId) !== VERBATIM_TONE_ID
+    ) {
       return;
     }
 
