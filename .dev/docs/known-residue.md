@@ -61,6 +61,10 @@ updated: 2026-09-18
 随这批死代码一起可清：`firebase`、`mixpanel-browser`、`@voquill/pricing`、`@voquill/functions`、
 `packages/{firemix,pricing,functions}`。
 
+仍未清理的云入口（已不再影响本地身份，见账本 2026-09-18 的修复条目，但仍是无效调用）：
+`main.tsx` 的 Firebase 初始化、`repos/index.ts` 的 `getAuthRepo()` → `CloudAuthRepo`、
+`AppSideEffects` 里每 5 分钟一次的 `refreshTokens()`。
+
 两个反向约束：
 
 - `@firemix/core`（npm 包）**不能删**：`packages/types` 的多个类型文件使用 `FiremixTimestamp`。

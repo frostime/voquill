@@ -102,6 +102,21 @@ last_reviewed_upstream: ef8572a3
 - 遗留：`ignoreUpdateDialog` 偏好字段仍留在 Rust domain 结构、DB 列与 preferences payload 中，只是没有界面可改；删除它要动 Rust 结构与 5 处 SQL 映射，收益不足
 - 发布方式：本地构建后 `gh release create`，见 `release.md`
 
+### 2026-09-18 · 修复：本地身份不再由云端会话决定
+- `84584ba4` 代码修复 → `0860c7f1` 版本 `10.0.1`
+- 现象：安装版（identifier `com.voquill.desktop`）启动后被强制进入 onboarding，结束时抛
+  `Cannot finish onboarding: user not found`；dev 版（`com.voquill.desktop.local`）一切正常
+- 原因：`main.tsx` 仍初始化 Firebase、`getAuthRepo()` 仍返回 `CloudAuthRepo`、
+  `AppSideEffects` 仍订阅 `onAuthStateChanged`，于是旧官方安装遗留在 WebView 存储里的
+  Firebase 会话被回放，`state.auth.uid` 变成旧云端 uid；而本地 profile 是按 `LOCAL_USER_ID`
+  存储的，`getMyUser()` 因此返回 null
+- 修复：`getMyEffectiveUserId()` 不再读 `state.auth`（本地 profile 是唯一身份）；
+  `AppSideEffects` 不再订阅 auth，只把 authReady 置位，`state.auth` 恒为 null
+- 影响：被劫持期间的那次 onboarding 已把本地 profile 写成 `onboarded = false`，
+  因此从官方版升级的用户仍会看到一次 onboarding；数据不丢（History / API key / 偏好按表保留）
+- 未清：`getAuthRepo()` 仍返回 `CloudAuthRepo`、`refreshTokens()` 仍每 5 分钟被调用、
+  `main.tsx` 仍初始化 Firebase（见 `known-residue.md`）
+
 ## 四、上游同步规则
 
 `upstream-main` 是上游 main 的镜像：**该分支上永远不产生本地提交**。
