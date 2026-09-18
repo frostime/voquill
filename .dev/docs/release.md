@@ -23,7 +23,7 @@ updated: 2026-09-18
 | 前端 `getVersion()`（Dashboard、诊断对话框） | Cargo.toml（`tauri-codegen` 的 `context.rs` 回落到 `CARGO_PKG_VERSION`） |
 | Rust 启动日志、诊断文件、exe 的版本资源 | Cargo.toml |
 
-发布时只做一件事：改 `Cargo.toml` 里那一行（当前 `10.0.0`）。`Cargo.lock` 会在下次构建时自动跟上。
+发布时只做一件事：改 `Cargo.toml` 里那一行（当前 `10.0.1`）。`Cargo.lock` 会在下次构建时自动跟上。
 
 不要把 `version` 写回 `tauri.conf.json`——那会重新制造第二个来源，并与 Rust 侧的值分叉。
 `apps/desktop/package.json` 的 `version` 字段已删除，不要加回来：它不参与打包。
@@ -67,19 +67,21 @@ apps/desktop/src-tauri/target/release/bundle/
 目前是手动流程，没有 release workflow：
 
 1. 递增 `apps/desktop/src-tauri/Cargo.toml` 的 `version` 并提交；
-2. 按上面的步骤本地打包；
-3. 创建 release 并上传两个安装包：
+2. 把 `CHANGELOG.md` 的 `[Unreleased]` 改成 `[<version>] - <YYYY-MM-DD>`，新开一个空的 `[Unreleased]`，
+   并更新底部的 compare 链接；
+3. 按上面的步骤本地打包；
+4. 创建 release 并上传两个安装包（release notes 用 CHANGELOG 对应段落即可）：
 
 ```bash
 # 本仓库同时有 origin 与 upstream 两个 remote，gh 可能解析到上游仓库，
 # 所以显式指定 --repo（或先跑一次 gh repo set-default frostime/voquill）
-gh release create v10.0.0 --repo frostime/voquill \
-  apps/desktop/src-tauri/target/release/bundle/nsis/Voquill_10.0.0_x64-setup.exe \
-  apps/desktop/src-tauri/target/release/bundle/msi/Voquill_10.0.0_x64_en-US.msi \
-  --title "10.0.0" --notes "<这一版相对上游/上一版的差异>"
+gh release create v10.0.1 --repo frostime/voquill \
+  apps/desktop/src-tauri/target/release/bundle/nsis/Voquill_10.0.1_x64-setup.exe \
+  apps/desktop/src-tauri/target/release/bundle/msi/Voquill_10.0.1_x64_en-US.msi \
+  --title "10.0.1" --notes-file <release notes 文件>
 ```
 
-误发时删除：`gh release delete v10.0.0 --repo frostime/voquill --cleanup-tag`。
+误发时删除：`gh release delete v10.0.1 --repo frostime/voquill --cleanup-tag`。
 
 不需要签名，也不需要 `latest.json`（没有 updater）。
 

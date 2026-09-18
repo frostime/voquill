@@ -3,6 +3,7 @@
 - Personal fork of [voquill/voquill](https://github.com/voquill/voquill): Windows Desktop only, for private long-term use. Not an upstream PR — never preserve upstream compatibility at the cost of personal-use simplicity.
 - Highest constraint: free (non-subscription) Windows Desktop features must keep their behavior. Removing infrastructure that a kept feature depends on requires migrating that feature to a local owner first — never delete the caller to make compilation pass.
 - Divergence record, task orchestration, and regression contract live in `.dev/`; start at `.dev/docs/upstream-divergence.md`.
+- User-visible changes per release go in `CHANGELOG.md` (Keep a Changelog): add them under `[Unreleased]` as you go; the divergence record covers code-level differences instead.
 
 ** Rules **
 
