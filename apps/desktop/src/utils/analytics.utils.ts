@@ -4,10 +4,6 @@
 // deletes the remaining trackX() callers.
 export const CURRENT_COHORT = "2025-02-a";
 
-export function getMixpanel() {
-  return null;
-}
-
 export function trackPageView(_pageName: string) {}
 
 export function trackOnboardingStep(_step: string) {}
