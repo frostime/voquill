@@ -6,7 +6,7 @@ use crate::ipc::{Phase, PillPermission, PillStreaming};
 use crate::state::{ClickAction, ClickRegion, PillState, RocketPhase};
 
 pub(crate) fn draw_all(gfx: &mut Gfx, state: &PillState) {
-    gfx.begin_frame();
+    gfx.begin_frame(crate::state::dpi_scale());
     gfx.clear();
 
     state.click_regions.borrow_mut().clear();

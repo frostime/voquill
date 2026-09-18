@@ -4,6 +4,22 @@ use std::time::Instant;
 use crate::ipc::{Phase, PillMessage, PillPermission, PillStreaming, Visibility};
 use crate::constants::*;
 
+thread_local! {
+    static DPI_SCALE: Cell<f64> = const { Cell::new(1.0) };
+}
+
+pub(crate) fn dpi_scale() -> f64 {
+    DPI_SCALE.with(|s| s.get())
+}
+
+pub(crate) fn set_dpi_scale(scale: f64) {
+    DPI_SCALE.with(|s| s.set(scale));
+}
+
+pub(crate) fn scale_px(px: i32) -> i32 {
+    (px as f64 * dpi_scale()).round() as i32
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum RocketPhase {
     Rising,

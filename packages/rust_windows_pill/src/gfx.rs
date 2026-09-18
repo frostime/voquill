@@ -62,8 +62,8 @@ impl Gfx {
                     format: DXGI_FORMAT_B8G8R8A8_UNORM,
                     alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED,
                 },
-                dpiX: 0.0,
-                dpiY: 0.0,
+                dpiX: 96.0,
+                dpiY: 96.0,
                 usage: D2D1_RENDER_TARGET_USAGE_NONE,
                 minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
             };
@@ -111,10 +111,12 @@ impl Gfx {
         }
     }
 
-    pub(crate) fn begin_frame(&mut self) {
+    pub(crate) fn begin_frame(&mut self, scale: f64) {
         self.save_stack.clear();
         self.clip_kinds.clear();
-        self.current_transform = Matrix3x2::identity();
+        // Drawing coordinates are logical pixels (96 DPI); the base transform
+        // maps them onto the physical-pixel canvas.
+        self.current_transform = Matrix3x2::scale(scale as f32, scale as f32);
         unsafe {
             let rect = RECT { left: 0, top: 0, right: self.width, bottom: self.height };
             self.rt.BindDC(self.hdc, &rect).ok();

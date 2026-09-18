@@ -6,6 +6,7 @@ use windows::core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::*;
+use windows::Win32::UI::HiDpi::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -54,7 +55,11 @@ pub fn run(receiver: Receiver<InMessage>) {
     };
     unsafe { RegisterClassExW(&wc); }
 
-    let (wx, wy) = initial_position();
+    let scale = initial_scale();
+    state::set_dpi_scale(scale);
+    let win_w = state::scale_px(WINDOW_W_TYPING);
+    let win_h = state::scale_px(WINDOW_H_TYPING);
+    let (wx, wy) = initial_position(win_w, win_h);
     let hwnd = unsafe {
         CreateWindowExW(
             WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
@@ -62,7 +67,7 @@ pub fn run(receiver: Receiver<InMessage>) {
             w!("VoquillPill"),
             WS_POPUP,
             wx, wy,
-            WINDOW_W_TYPING, WINDOW_H_TYPING,
+            win_w, win_h,
             None, None, Some(hinstance.into()), None,
         ).unwrap()
     };
@@ -70,7 +75,7 @@ pub fn run(receiver: Receiver<InMessage>) {
     HWND_CELL.with(|c| c.set(hwnd));
     eprintln!("[pill] window created in {:?}", t0.elapsed());
 
-    let gfx = Gfx::new(WINDOW_W_TYPING, WINDOW_H_TYPING).expect("Failed to create D2D context");
+    let gfx = Gfx::new(win_w, win_h).expect("Failed to create D2D context");
     eprintln!("[pill] D2D/DWrite initialized in {:?}", t0.elapsed());
 
     let state = PillState {
@@ -195,8 +200,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             LRESULT(0)
         }
         WM_MOUSEMOVE => {
-            let raw_x = (lparam.0 & 0xFFFF) as i16 as f64;
-            let raw_y = ((lparam.0 >> 16) & 0xFFFF) as i16 as f64;
+            let raw_x = (lparam.0 & 0xFFFF) as i16 as f64 / state::dpi_scale();
+            let raw_y = ((lparam.0 >> 16) & 0xFFFF) as i16 as f64 / state::dpi_scale();
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     let (ox, oy) = state.content_offset();
@@ -237,8 +242,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             LRESULT(0)
         }
         WM_LBUTTONUP => {
-            let x = (lparam.0 & 0xFFFF) as i16 as f64;
-            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as f64;
+            let x = (lparam.0 & 0xFFFF) as i16 as f64 / state::dpi_scale();
+            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as f64 / state::dpi_scale();
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     input::handle_click(state, x, y);
@@ -248,7 +253,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_MOUSEWHEEL => {
             let delta = ((wparam.0 >> 16) & 0xFFFF) as i16 as f64;
-            let scroll = -delta / 120.0 * 30.0;
+            let scroll = -delta / 120.0 * 30.0 * state::dpi_scale();
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     input::handle_scroll(state, scroll);
@@ -791,23 +796,23 @@ fn check_hover(hwnd: HWND, state: &PillState) {
 
     // Pill position in screen coordinates
     let (pill_x, pill_y, pill_w, pill_h) = draw::pill_position(state, dw, dh);
-    let screen_pill_x = win_rect.left as f64 + ox + pill_x;
-    let screen_pill_y = win_rect.top as f64 + oy + pill_y;
+    let screen_pill_x = win_rect.left as f64 + (ox + pill_x) * state::dpi_scale();
+    let screen_pill_y = win_rect.top as f64 + (oy + pill_y) * state::dpi_scale();
 
-    let pad = if state.hovered.get() { 24.0 } else { 8.0 };
+    let pad = if state.hovered.get() { 24.0 } else { 8.0 } * state::dpi_scale();
     let cx = cursor.x as f64;
     let cy = cursor.y as f64;
 
     let in_pill = cx >= screen_pill_x - pad
-        && cx <= screen_pill_x + pill_w + pad
+        && cx <= screen_pill_x + pill_w * state::dpi_scale() + pad
         && cy >= screen_pill_y - pad
-        && cy <= screen_pill_y + pill_h + pad;
+        && cy <= screen_pill_y + pill_h * state::dpi_scale() + pad;
 
     let in_panel = if state.assistant_active.get() {
-        let panel_x = win_rect.left as f64 + ox;
-        let panel_y = win_rect.top as f64 + oy;
-        cx >= panel_x && cx <= panel_x + dw
-            && cy >= panel_y && cy <= panel_y + dh
+        let panel_x = win_rect.left as f64 + ox * state::dpi_scale();
+        let panel_y = win_rect.top as f64 + oy * state::dpi_scale();
+        cx >= panel_x && cx <= panel_x + dw * state::dpi_scale()
+            && cy >= panel_y && cy <= panel_y + dh * state::dpi_scale()
     } else {
         false
     };
@@ -850,7 +855,7 @@ fn update_layered(hwnd: HWND, gfx: &Gfx) {
     }
 }
 
-fn initial_position() -> (i32, i32) {
+fn initial_position(win_w: i32, win_h: i32) -> (i32, i32) {
     unsafe {
         let mut cursor = POINT::default();
         let _ = GetCursorPos(&mut cursor);
@@ -863,9 +868,79 @@ fn initial_position() -> (i32, i32) {
         let wa = info.rcWork;
         let wa_w = wa.right - wa.left;
         let wa_h = wa.bottom - wa.top;
-        let x = wa.left + (wa_w - WINDOW_W_TYPING) / 2;
-        let y = wa.top + wa_h - WINDOW_H_TYPING - MARGIN_BOTTOM;
+        let x = wa.left + (wa_w - win_w) / 2;
+        let y = wa.top + wa_h - win_h - state::scale_px(MARGIN_BOTTOM);
         (x, y)
+    }
+}
+
+fn initial_scale() -> f64 {
+    unsafe {
+        let mut cursor = POINT::default();
+        let _ = GetCursorPos(&mut cursor);
+        let monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTOPRIMARY);
+        monitor_scale(monitor)
+    }
+}
+
+fn monitor_scale(monitor: HMONITOR) -> f64 {
+    unsafe {
+        let mut dpi_x = 0u32;
+        let mut dpi_y = 0u32;
+        if GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y).is_ok()
+            && dpi_x > 0
+        {
+            dpi_x as f64 / 96.0
+        } else {
+            1.0
+        }
+    }
+}
+
+fn apply_scale(hwnd: HWND, scale: f64) {
+    if (scale - state::dpi_scale()).abs() < 1e-6 {
+        return;
+    }
+    state::set_dpi_scale(scale);
+    let win_w = state::scale_px(WINDOW_W_TYPING);
+    let win_h = state::scale_px(WINDOW_H_TYPING);
+    GFX.with(|g| {
+        if let Some(gfx) = g.borrow_mut().as_mut() {
+            gfx.resize(win_w, win_h);
+        }
+    });
+    STATE.with(|s| {
+        if let Some(ref state) = *s.borrow() {
+            state.dirty.set(true);
+        }
+    });
+    unsafe {
+        let _ = SetWindowPos(
+            hwnd, None, 0, 0, win_w, win_h,
+            SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+    }
+    apply_edit_dpi();
+}
+
+fn apply_edit_dpi() {
+    let scale = state::dpi_scale();
+    unsafe {
+        let mut lf = LOGFONTW::default();
+        lf.lfHeight = -(18.0 * scale).round() as i32;
+        lf.lfWeight = 400;
+        let face: Vec<u16> = "Segoe UI".encode_utf16().collect();
+        lf.lfFaceName[..face.len()].copy_from_slice(&face);
+        let font = CreateFontIndirectW(&lf);
+        EDIT_HWND.with(|e| {
+            let _ = SendMessageW(e.get(), WM_SETFONT, Some(WPARAM(font.0 as usize)), Some(LPARAM(1)));
+            let m = state::scale_px(8) as isize;
+            let _ = SendMessageW(
+                e.get(), EM_SETMARGINS,
+                Some(WPARAM((EC_LEFTMARGIN | EC_RIGHTMARGIN) as usize)),
+                Some(LPARAM(m | (m << 16))),
+            );
+        });
     }
 }
 
@@ -874,6 +949,9 @@ fn reposition_to_cursor_monitor(hwnd: HWND) {
         let mut cursor = POINT::default();
         let _ = GetCursorPos(&mut cursor);
         let monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTOPRIMARY);
+        apply_scale(hwnd, monitor_scale(monitor));
+        let win_w = state::scale_px(WINDOW_W_TYPING);
+        let win_h = state::scale_px(WINDOW_H_TYPING);
         let mut info = MONITORINFO {
             cbSize: std::mem::size_of::<MONITORINFO>() as u32,
             ..Default::default()
@@ -882,8 +960,8 @@ fn reposition_to_cursor_monitor(hwnd: HWND) {
         let wa = info.rcWork;
         let wa_w = wa.right - wa.left;
         let wa_h = wa.bottom - wa.top;
-        let x = wa.left + (wa_w - WINDOW_W_TYPING) / 2;
-        let y = wa.top + wa_h - WINDOW_H_TYPING - MARGIN_BOTTOM;
+        let x = wa.left + (wa_w - win_w) / 2;
+        let y = wa.top + wa_h - win_h - state::scale_px(MARGIN_BOTTOM);
 
         let mut current = RECT::default();
         let _ = GetWindowRect(hwnd, &mut current);
@@ -983,21 +1061,9 @@ fn create_edit_overlay(hinstance: HMODULE, main_hwnd: HWND) {
             None,
         ).unwrap();
 
-        // Font: Segoe UI ~14pt
-        let mut lf = LOGFONTW::default();
-        lf.lfHeight = -18;
-        lf.lfWeight = 400;
-        let face: Vec<u16> = "Segoe UI".encode_utf16().collect();
-        lf.lfFaceName[..face.len()].copy_from_slice(&face);
-        let font = CreateFontIndirectW(&lf);
-        SendMessageW(edit, WM_SETFONT, Some(WPARAM(font.0 as usize)), Some(LPARAM(1)));
-
-        // Set internal margins
-        let margins = (8u32 as isize) | ((8u32 as isize) << 16);
-        SendMessageW(edit, EM_SETMARGINS, Some(WPARAM((EC_LEFTMARGIN | EC_RIGHTMARGIN) as usize)), Some(LPARAM(margins)));
-
         EDIT_CONTAINER.with(|c| c.set(container));
         EDIT_HWND.with(|e| e.set(edit));
+        apply_edit_dpi();
     }
 }
 
@@ -1133,9 +1199,10 @@ fn update_edit_overlay(main_hwnd: HWND, state: &PillState) {
     let mut win_rect = RECT::default();
     unsafe { let _ = GetWindowRect(main_hwnd, &mut win_rect); }
 
-    let screen_x = win_rect.left as f64 + ox + input_x;
-    let screen_y = win_rect.top as f64 + oy + input_y + 1.0;
-    let h = PANEL_INPUT_HEIGHT - 1.0;
+    let scale = state::dpi_scale();
+    let screen_x = win_rect.left as f64 + (ox + input_x) * scale;
+    let screen_y = win_rect.top as f64 + (oy + input_y + 1.0) * scale;
+    let h = (PANEL_INPUT_HEIGHT - 1.0) * scale;
 
     unsafe {
         // Color key makes the background transparent; alpha matches text to panel opacity
@@ -1148,13 +1215,13 @@ fn update_edit_overlay(main_hwnd: HWND, state: &PillState) {
         let _ = SetWindowPos(
             container, None,
             screen_x as i32, screen_y as i32,
-            input_w as i32, h as i32,
+            (input_w * scale) as i32, h as i32,
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW,
         );
         let _ = SetWindowPos(
             edit, None,
             0, 0,
-            input_w as i32, h as i32,
+            (input_w * scale) as i32, h as i32,
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE,
         );
     }
