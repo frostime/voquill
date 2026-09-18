@@ -38,6 +38,9 @@ last_reviewed_upstream: ef8572a3
 
 ## 三、差异专题
 
+专题只收录**与上游存在同步关系**的差异：上游仍在维护同一片代码，同步时必须决定移植、忽略还是手工融合。
+本仓库自己新增、上游没有对应物的功能不进专题，只记在 `CHANGELOG.md`，并在文末"本仓库新增功能"留一行索引。
+
 专题是差异的组织单位，不按时间或提交排列，也不编号——新增专题只是多一个小节，不牵动其他小节。每个专题记录：提交范围、与上游的实质差别、上游同步时的注意点。
 新增差异先并入既有专题；只有确实出现新主题时才新增专题。
 
@@ -105,7 +108,13 @@ last_reviewed_upstream: ef8572a3
   - README 重写为 fork 声明（AGPLv3 继承 + 上游署名，声明不含 enterprise 专有部分）；`AGENTS.md` 重写为 fork 入口；`.dev/` 对齐 repo layout；分支拓扑定为 `main` ⇄ `origin/main`，`upstream-main` 只读跟踪上游。
 - **同步注意**：`@firemix/core`（npm 依赖）**仍在用**，`packages/types` 的 `FiremixTimestamp` 依赖它；只有 `@voquill/firemix` 这个 workspace 包是孤儿。上游在 `docs/` 下的新增文档默认忽略。
 
-## 四、上游同步规则
+## 四、本仓库新增功能
+
+上游没有对应物的功能细节只在 `CHANGELOG.md`，这里留一行索引，便于知道哪些行为在上游是找不到的。
+
+- 字典导出为 txt（一个词一行）——未发布（`e85f5fb5`）
+
+## 五、上游同步规则
 
 `upstream-main` 是上游 main 的镜像：**该分支上永远不产生本地提交**。
 
