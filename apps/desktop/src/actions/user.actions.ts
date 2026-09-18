@@ -636,12 +636,6 @@ export const markFeatureSeen = (featureDate: string): void => {
   });
 };
 
-export const setIgnoreUpdateDialog = async (ignore: boolean): Promise<void> => {
-  await updateUserPreferences((preferences) => {
-    preferences.ignoreUpdateDialog = ignore;
-  }, "Failed to save update dialog preference. Please try again.");
-};
-
 export const setIncognitoModeEnabled = async (
   enabled: boolean,
 ): Promise<void> => {

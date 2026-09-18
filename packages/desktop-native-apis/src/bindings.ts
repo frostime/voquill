@@ -396,14 +396,6 @@ async setTrayTitle(title: string | null) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setMenuIcon(variant: MenuIconVariant) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_menu_icon", { variant }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async setTrayVisible(visible: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_tray_visible", { visible }) };
@@ -772,19 +764,6 @@ async checkAppLocationWritable() : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Downloads a `.pkg` installer to a temp directory and opens it with
- * macOS Installer.app. This is used as a fallback when the normal in-place
- * updater cannot write to the app's install location.
- */
-async downloadAndOpenMacInstaller(url: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("download_and_open_mac_installer", { url }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async getSystemVolume() : Promise<Result<number, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_system_volume") };
@@ -1032,7 +1011,6 @@ wroteFile: boolean;
  * it picks up the bridge. Always true when `wrote_file` is true.
  */
 restartRequired: boolean }
-export type MenuIconVariant = "default" | "update"
 export type MonitorAtCursor = { x: number; y: number; width: number; height: number; visibleX: number; visibleY: number; visibleWidth: number; visibleHeight: number; scaleFactor: number; cursorX: number; cursorY: number }
 export type NativeSetupResult = "success" | "require-restart" | "failed"
 export type NativeSetupStatus = "ready" | "needs-setup" | "needs-restart"

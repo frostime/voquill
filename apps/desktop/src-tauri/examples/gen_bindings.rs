@@ -56,7 +56,6 @@ fn main() {
         hotkey_save,
         hotkey_delete,
         set_tray_title,
-        set_menu_icon,
         set_tray_visible,
         api_key_create,
         api_key_list,

@@ -15,8 +15,6 @@ fn handle_run_event(app_handle: &tauri::AppHandle, event: RunEvent) {
 }
 
 pub fn build() -> tauri::Builder<tauri::Wry> {
-    let updater_builder = tauri_plugin_updater::Builder::new();
-
     tauri::Builder::default()
         .plugin({
             let file_name = chrono::Local::now()
@@ -62,7 +60,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
                 .add_migrations(crate::db::DB_CONNECTION, crate::db::migrations())
                 .build(),
         )
-        .plugin(updater_builder.build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
@@ -249,7 +246,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::hotkey_save,
             crate::commands::hotkey_delete,
             crate::commands::set_tray_title,
-            crate::commands::set_menu_icon,
             crate::commands::set_tray_language_menu,
             crate::commands::set_tray_visible,
             crate::commands::api_key_create,

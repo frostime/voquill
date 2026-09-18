@@ -1,7 +1,6 @@
 {
   "name": "desktop",
   "private": true,
-  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "prepare:sidecars": "node scripts/prepare-sidecars.mjs",
@@ -41,7 +40,6 @@
     "@tauri-apps/plugin-os": "~2.3.2",
     "@tauri-apps/plugin-process": "~2.3.1",
     "@tauri-apps/plugin-sql": "~2.4.0",
-    "@tauri-apps/plugin-updater": "~2.10.1",
     "@voquill/desktop-utils": "workspace:*",
     "@voquill/functions": "workspace:*",
     "@voquill/pricing": "workspace:*",

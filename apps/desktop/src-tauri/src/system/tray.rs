@@ -3,29 +3,15 @@ const TRAY_ICON_DEFAULT: &[u8] = include_bytes!(concat!(
     "/icons/tray/menu-item-win-linux-36.png"
 ));
 
-const TRAY_ICON_UPDATE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/icons/tray/update-win-linux-36.png"
-));
-
-#[derive(Debug, Clone, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "snake_case")]
-pub enum MenuIconVariant {
-    Default,
-    Update,
-}
-
 use crate::domain::EVT_REGISTER_CURRENT_APP;
 use std::sync::OnceLock;
 use tauri::menu::{MenuItem, Submenu};
 
-pub const EVT_INSTALL_UPDATE: &str = "tray-install-update";
 pub const EVT_COPY_LAST_TRANSCRIPT: &str = "tray-copy-last-transcript";
 pub const EVT_SET_DICTATION_LANGUAGE: &str = "tray-set-dictation-language";
 
 const TRAY_LANGUAGE_ITEM_PREFIX: &str = "tray-lang:";
 
-static UPDATE_MENU_ITEM: OnceLock<MenuItem<tauri::Wry>> = OnceLock::new();
 static LANGUAGE_SUBMENU: OnceLock<Submenu<tauri::Wry>> = OnceLock::new();
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type)]
@@ -51,9 +37,6 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
-    let update_item =
-        MenuItem::with_id(app, "install-update", "Install Update", false, None::<&str>)?;
-    let _ = UPDATE_MENU_ITEM.set(update_item.clone());
     let register_current_app_item = MenuItem::with_id(
         app,
         "register-current-app",
@@ -70,7 +53,6 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
         .item(&copy_last_transcript_item)
         .item(&register_current_app_item)
         .item(&language_submenu)
-        .item(&update_item)
         .separator()
         .item(&quit_item)
         .build()?;
@@ -93,11 +75,6 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                     log::error!("Failed to emit copy-last-transcript event: {err}");
                 }
             }
-            "install-update" => {
-                if let Err(err) = app.emit(EVT_INSTALL_UPDATE, ()) {
-                    log::error!("Failed to emit install-update event: {err}");
-                }
-            }
             "register-current-app" => {
                 if let Err(err) = app.emit(EVT_REGISTER_CURRENT_APP, ()) {
                     log::error!("Failed to emit register-current-app event: {err}");
@@ -114,31 +91,6 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
         });
 
     let _tray_icon = tray_builder.build(app)?;
-
-    Ok(())
-}
-
-pub fn set_menu_icon(app: &tauri::AppHandle, variant: MenuIconVariant) -> Result<(), String> {
-    use tauri::image::Image;
-    use tauri::tray::TrayIconId;
-
-    let is_update = matches!(variant, MenuIconVariant::Update);
-
-    let bytes = match variant {
-        MenuIconVariant::Default => TRAY_ICON_DEFAULT,
-        MenuIconVariant::Update => TRAY_ICON_UPDATE,
-    };
-
-    let tray = app
-        .tray_by_id(&TrayIconId::new("main"))
-        .ok_or("Tray icon not found")?;
-
-    let image = Image::from_bytes(bytes).map_err(|err| err.to_string())?;
-    tray.set_icon(Some(image)).map_err(|err| err.to_string())?;
-
-    if let Some(update_item) = UPDATE_MENU_ITEM.get() {
-        let _ = update_item.set_enabled(is_update);
-    }
 
     Ok(())
 }
