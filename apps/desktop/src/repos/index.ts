@@ -74,18 +74,8 @@ import {
 import { BaseStorageRepo, LocalStorageRepo } from "./storage.repo";
 import { BaseStripeRepo, CloudStripeRepo } from "./stripe.repo";
 import { BaseTenantRepo, CloudTenantRepo } from "./tenant.repo";
-import {
-  BaseTermRepo,
-  CloudTermRepo,
-  EnterpriseTermRepo,
-  LocalTermRepo,
-} from "./term.repo";
-import {
-  BaseToneRepo,
-  CloudToneRepo,
-  EnterpriseToneRepo,
-  LocalToneRepo,
-} from "./tone.repo";
+import { BaseTermRepo, LocalTermRepo } from "./term.repo";
+import { BaseToneRepo, LocalToneRepo } from "./tone.repo";
 import { ToolRepo } from "./tool.repo";
 import {
   AldeaTranscribeAudioRepo,
@@ -107,16 +97,10 @@ import {
   BaseTranscriptionRepo,
   LocalTranscriptionRepo,
 } from "./transcription.repo";
-import {
-  BaseUserRepo,
-  CloudUserRepo,
-  EnterpriseUserRepo,
-  LocalUserRepo,
-} from "./user.repo";
+import { BaseUserRepo, LocalUserRepo } from "./user.repo";
 export { BaseModelProviderRepo } from "./model-provider.repo";
 
 const isEnterprise = () => getIsEnterpriseEnabled();
-const isLoggedIn = () => !!getAppState().auth;
 
 export const getMemberRepo = (): BaseMemberRepo => {
   return isEnterprise() ? new EnterpriseMemberRepo() : new CloudMemberRepo();
@@ -143,11 +127,7 @@ export const getAuthRepo = (): BaseAuthRepo => {
 };
 
 export const getUserRepo = (): BaseUserRepo => {
-  if (isEnterprise()) {
-    return new EnterpriseUserRepo();
-  }
-
-  return isLoggedIn() ? new CloudUserRepo() : new LocalUserRepo();
+  return new LocalUserRepo();
 };
 
 export const getUserPreferencesRepo = (): BaseUserPreferencesRepo => {
@@ -163,10 +143,7 @@ export const getAppTargetRepo = (): BaseAppTargetRepo => {
 };
 
 export const getTermRepo = (): BaseTermRepo => {
-  if (isEnterprise()) {
-    return new EnterpriseTermRepo();
-  }
-  return isLoggedIn() ? new CloudTermRepo() : new LocalTermRepo();
+  return new LocalTermRepo();
 };
 
 export const getHotkeyRepo = (): BaseHotkeyRepo => {
@@ -178,10 +155,7 @@ export const getApiKeyRepo = (): BaseApiKeyRepo => {
 };
 
 export const getToneRepo = (): BaseToneRepo => {
-  if (isEnterprise()) {
-    return new EnterpriseToneRepo();
-  }
-  return isLoggedIn() ? new CloudToneRepo() : new LocalToneRepo();
+  return new LocalToneRepo();
 };
 
 export const getStorageRepo = (): BaseStorageRepo => {
