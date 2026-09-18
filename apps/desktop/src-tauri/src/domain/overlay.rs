@@ -16,7 +16,9 @@ pub enum PillWindowSize {
 pub enum OverlayPhase {
     Idle,
     Recording,
-    Loading,
+    Saving,
+    Transcribing,
+    Refining,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -29,7 +31,9 @@ impl OverlayPhase {
         match value {
             "idle" => Some(Self::Idle),
             "recording" => Some(Self::Recording),
-            "loading" => Some(Self::Loading),
+            "saving" => Some(Self::Saving),
+            "transcribing" => Some(Self::Transcribing),
+            "refining" => Some(Self::Refining),
             _ => None,
         }
     }

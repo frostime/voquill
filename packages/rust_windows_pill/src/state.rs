@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::time::Instant;
 
 use crate::ipc::{Phase, PillMessage, PillPermission, PillStreaming, Visibility};
 use crate::constants::*;
@@ -105,6 +106,7 @@ pub(crate) struct FlameTongue {
 
 pub(crate) struct PillState {
     pub(crate) phase: Cell<Phase>,
+    pub(crate) recording_started_at: Cell<Option<Instant>>,
     pub(crate) visibility: Cell<Visibility>,
     pub(crate) expand_t: Cell<f64>,
     pub(crate) expand_velocity: Cell<f64>,
@@ -112,7 +114,7 @@ pub(crate) struct PillState {
     pub(crate) wave_phase: Cell<f64>,
     pub(crate) current_level: Cell<f64>,
     pub(crate) target_level: Cell<f64>,
-    pub(crate) loading_offset: Cell<f64>,
+    pub(crate) processing_offset: Cell<f64>,
     pub(crate) pending_levels: RefCell<Vec<f32>>,
     pub(crate) style_count: Cell<u32>,
     pub(crate) style_name: RefCell<String>,

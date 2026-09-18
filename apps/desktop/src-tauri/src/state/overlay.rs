@@ -5,7 +5,9 @@ use crate::domain::{OverlayPhase, PillWindowSize};
 
 const PHASE_IDLE: u8 = 0;
 const PHASE_RECORDING: u8 = 1;
-const PHASE_LOADING: u8 = 2;
+const PHASE_SAVING: u8 = 2;
+const PHASE_TRANSCRIBING: u8 = 3;
+const PHASE_REFINING: u8 = 4;
 
 const SIZE_DICTATION: u8 = 0;
 const SIZE_ASSISTANT_COMPACT: u8 = 1;
@@ -51,7 +53,9 @@ impl OverlayState {
         let value = match phase {
             OverlayPhase::Idle => PHASE_IDLE,
             OverlayPhase::Recording => PHASE_RECORDING,
-            OverlayPhase::Loading => PHASE_LOADING,
+            OverlayPhase::Saving => PHASE_SAVING,
+            OverlayPhase::Transcribing => PHASE_TRANSCRIBING,
+            OverlayPhase::Refining => PHASE_REFINING,
         };
         self.phase.store(value, Ordering::Relaxed);
     }
@@ -59,7 +63,9 @@ impl OverlayState {
     pub fn get_phase(&self) -> OverlayPhase {
         match self.phase.load(Ordering::Relaxed) {
             PHASE_RECORDING => OverlayPhase::Recording,
-            PHASE_LOADING => OverlayPhase::Loading,
+            PHASE_SAVING => OverlayPhase::Saving,
+            PHASE_TRANSCRIBING => OverlayPhase::Transcribing,
+            PHASE_REFINING => OverlayPhase::Refining,
             _ => OverlayPhase::Idle,
         }
     }

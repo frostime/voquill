@@ -163,6 +163,7 @@ END
     手动 Retranscribe 并成功产出文本，核心恢复闭环通过。
     独立 change：`.dev/changes/recording-recovery/recording-recovery.DEV-SPEC.md`。
     独立分支：`feat/recording-recovery`（基于 main@1a8b61f5）。
+    2026-09-18 分支以 `--no-ff` 合并回 main（merge commit b3653c3b）并推送 origin/main。
 
 [确认行为与架构边界] `DONE`
     2026-09-17 用户确认：正常 Dictation、非 Incognito、非显式 Cancel 才进入保证范围；
@@ -191,26 +192,39 @@ END
 
 ---
 
-# M5 — 胶囊进度反馈 `TODO`  << CURRENT
+# M5 — 胶囊进度反馈 `DONE`
 
-    REQUIRES [M4 完成]：使用稳定后的 recording lifecycle 阶段边界，避免重复修改。
-    必须作为独立 change / branch 实施，不与 recording recovery 混合。
+    REQUIRES [M4 完成]：DONE。
+    独立 change：`.dev/changes/pill-progress-feedback/`。
+    独立分支：`feat/pill-progress-feedback`（基于 main@b3653c3b）。
+    提交：8feeb075（SPEC/SHAPE）、547ebe0f（实现）、3286491f（计时区表面修复）。
+    2026-09-18 UI prototype 与行为方向获用户确认；DEV-SPEC/SHAPE accepted → completed。
 
-[录音计时]
+[录音计时] `DONE`
     Recording 阶段在 native Windows pill 显示 MM:SS；native 单调时钟计时，
     不由 TypeScript 每秒跨 IPC 推送；离开 Recording 后停止并重置。
 
-[处理阶段反馈]
+[处理阶段反馈] `DONE`
     Dictation 显示 Saving → Transcribing → Refining（仅实际启用 LLM 时）；
     Agent voice 显示计时与 Transcribing，随后交回既有 Assistant thinking/chat UI，
     不显示 Refining。瞬时 UI phase 不写数据库。
 
+[统一胶囊表面] `DONE`
+    用户视觉验收发现计时区在白底窗口前表现为一块独立的不透明黑板，并硬切波形。
+    根因：draw_recording_timer 在计时文字下额外画了一层 0.94 黑面板，波形右侧渐隐
+    被它完全遮住。修复：删除该面板，改为在分隔线前对波形做 alpha 衰减；同时移除
+    被面板遮蔽的右侧渐隐段。胶囊恢复为单一表面，右端轮廓不再被覆盖。
+
+    与 SHAPE 的实际偏差：为兑现"tabular/monospace 计时"，`gfx.rs` 新增一个 Consolas
+    等宽绘制入口（SHAPE 原列在"预计不修改"）；`draw.rs` 实际改动也超过预测上限。
+    两者均属局部渲染实现，未改变所有权、IPC 协议或外部行为。
+
     M5 退出条件：计时准确、阶段与实际处理一致、Dictation/Agent 既有交互无回归；
-    独立用户视觉验收通过。
+    独立用户视觉验收通过（2026-09-18 通过）。
 
 ---
 
-# M6 — Provider 与外围收尾 `TODO`
+# M6 — Provider 与外围收尾 `TODO`  << CURRENT
 
     REQUIRES [M5 完成]。
 
@@ -316,3 +330,20 @@ ASSUME 当前 checkout 的免费功能 characterization 无录音丢失以外的
   修正长录音 number[] 的额外复制；自动验证全绿（bare cargo test 仅受既有
   gen_bindings macOS 残留阻塞）。用户实机确认 STT 失败录音进入 History，
   且可从保存音频手动 Retranscribe 成功。SPEC/SHAPE 状态置 completed。
+- 2026-09-18 M4 分支合并：`feat/recording-recovery` 以 `--no-ff` 合入 main
+  （merge commit b3653c3b）并推送 origin/main。
+- 2026-09-18 M5 启动：UI prototype（录音计时 + Saving/Transcribing/Refining）获用户确认；
+  建立独立 change `.dev/changes/pill-progress-feedback/` 与分支
+  `feat/pill-progress-feedback`（base main@b3653c3b）；DEV-SPEC/SHAPE 置 accepted；
+  实现提交 547ebe0f。两轮独立 review 修复：set_phase 失败会中断 LLM、计时面板遮挡
+  胶囊边框、比例字体导致数字抖动。第一轮 review 的"内缩 1px"只保住了直边边框，
+  圆角处仍被覆盖（见下条）。
+- 2026-09-18 M5 用户视觉验收发现计时区是独立的不透明面板：浅色窗口前与胶囊本体的
+  半透明底色明显不同，且波形被硬切。根因：draw_recording_timer 在文字下额外画了一层
+  0.94 黑面板，波形的右侧渐隐完全被它遮住。修复提交 3286491f：删除该面板，改为在
+  分隔线前对波形做 alpha 衰减，并移除被面板遮蔽的右侧渐隐段。修复后实测计时区与胶囊
+  本体同为 lum 20（修复前为 7）。
+- 2026-09-18 M5 完成：用户视觉验收通过（胶囊表面统一、录音计时与阶段文案正常、分隔线
+  可见）；SPEC/SHAPE 置 completed；CURRENT 移至 M6。逐项人工复验（Verbatim 无 Refining、
+  连续录音计时归零、Agent 路径、Saving/Transcribing/Refining 时序）未单独记录，
+  其行为由自动化测试覆盖；SHAPE 的实际偏差已记入 M5 段内。

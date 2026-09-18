@@ -31,8 +31,7 @@ export const MicCheckForm = () => {
   const audioLevels = useAppStore((state) => state.audioLevels);
   const overlayPhase = useAppStore((state) => state.overlayPhase);
 
-  const isGlobalRecording =
-    overlayPhase === "recording" || overlayPhase === "loading";
+  const isGlobalRecording = overlayPhase !== "idle";
   const isRecording = recordingState === "recording";
   const isStarting = recordingState === "starting";
 

@@ -16,7 +16,24 @@ pub enum Visibility {
 pub enum Phase {
     Idle,
     Recording,
-    Loading,
+    Saving,
+    Transcribing,
+    Refining,
+}
+
+impl Phase {
+    pub(crate) fn is_processing(self) -> bool {
+        matches!(self, Self::Saving | Self::Transcribing | Self::Refining)
+    }
+
+    pub(crate) fn label(self) -> Option<&'static str> {
+        match self {
+            Self::Saving => Some("Saving"),
+            Self::Transcribing => Some("Transcribing"),
+            Self::Refining => Some("Refining"),
+            Self::Idle | Self::Recording => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -113,6 +130,31 @@ pub fn send(msg: &OutMessage) {
     let _ = serde_json::to_writer(&mut stdout, msg);
     let _ = stdout.write_all(b"\n");
     let _ = stdout.flush();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{InMessage, Phase};
+
+    #[test]
+    fn parses_all_overlay_phases() {
+        for (value, expected) in [
+            ("idle", Phase::Idle),
+            ("recording", Phase::Recording),
+            ("saving", Phase::Saving),
+            ("transcribing", Phase::Transcribing),
+            ("refining", Phase::Refining),
+        ] {
+            let message: InMessage = serde_json::from_str(&format!(
+                r#"{{"type":"phase","phase":"{value}"}}"#
+            ))
+            .expect("phase message should parse");
+            let InMessage::Phase { phase } = message else {
+                panic!("expected phase message");
+            };
+            assert_eq!(phase, expected);
+        }
+    }
 }
 
 pub fn start_stdin_reader(sender: Sender<InMessage>) {

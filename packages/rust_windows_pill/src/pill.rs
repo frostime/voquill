@@ -75,6 +75,7 @@ pub fn run(receiver: Receiver<InMessage>) {
 
     let state = PillState {
         phase: Cell::new(Phase::Idle),
+        recording_started_at: Cell::new(None),
         visibility: Cell::new(Visibility::WhileActive),
         expand_t: Cell::new(0.0),
         expand_velocity: Cell::new(0.0),
@@ -82,7 +83,7 @@ pub fn run(receiver: Receiver<InMessage>) {
         wave_phase: Cell::new(0.0),
         current_level: Cell::new(0.0),
         target_level: Cell::new(0.0),
-        loading_offset: Cell::new(0.0),
+        processing_offset: Cell::new(0.0),
         pending_levels: RefCell::new(Vec::new()),
         style_count: Cell::new(0),
         style_name: RefCell::new(String::new()),
@@ -363,10 +364,18 @@ fn process_message(msg: InMessage, state: &PillState, _hwnd: HWND) {
         InMessage::Phase { phase } => {
             let prev = state.phase.get();
             state.phase.set(phase);
+
+            if phase == Phase::Recording && prev != Phase::Recording {
+                state.recording_started_at.set(Some(Instant::now()));
+            } else if phase != Phase::Recording {
+                state.recording_started_at.set(None);
+            }
+
             if phase == Phase::Idle && prev != Phase::Idle {
                 state.target_level.set(0.0);
                 state.current_level.set(0.0);
                 state.wave_phase.set(0.0);
+                state.processing_offset.set(0.0);
             }
         }
         InMessage::Levels { levels } => {
@@ -458,7 +467,7 @@ fn tick(state: &PillState, dt: f64) {
     let phase = state.phase.get();
     let is_active = phase != Phase::Idle;
     let is_recording = phase == Phase::Recording;
-    let is_loading = phase == Phase::Loading;
+    let is_processing = phase.is_processing();
     let hovered = state.hovered.get();
     let frame_scale = dt * 60.0;
 
@@ -475,9 +484,6 @@ fn tick(state: &PillState, dt: f64) {
             let mix = 1.0 - 0.25_f64.powf(frame_scale);
             state.target_level.set((target * (1.0 - mix) + boosted * mix).min(1.0));
         }
-    } else if is_loading {
-        let target = state.target_level.get();
-        state.target_level.set(target.max(PROCESSING_BASE_LEVEL));
     } else {
         state.target_level.set(0.0);
         state.current_level.set(state.current_level.get() * 0.4_f64.powf(frame_scale));
@@ -497,16 +503,16 @@ fn tick(state: &PillState, dt: f64) {
     state.target_level.set(if decayed < 0.0005 { 0.0 } else { decayed });
 
     let level = state.current_level.get();
-    let base_level = if is_loading && !is_recording { PROCESSING_BASE_LEVEL } else { 0.0 };
-    let effective_level = level.max(base_level);
-    let advance = (WAVE_BASE_PHASE_STEP + WAVE_PHASE_GAIN * effective_level) * frame_scale;
+    let advance = (WAVE_BASE_PHASE_STEP + WAVE_PHASE_GAIN * level) * frame_scale;
     state.wave_phase.set((state.wave_phase.get() + advance) % TAU);
 
     let expand_target = if is_active || hovered || state.assistant_active.get() { 1.0 } else { 0.0 };
     spring_anim(&state.expand_t, &state.expand_velocity, expand_target, SPRING_STIFFNESS, dt);
 
-    if is_loading {
-        state.loading_offset.set((state.loading_offset.get() + LOADING_SPEED * frame_scale) % 1.0);
+    if is_processing {
+        state.processing_offset.set(
+            (state.processing_offset.get() + PROCESSING_ANIMATION_SPEED * frame_scale) % 1.0,
+        );
     }
 
     let show_tooltip = !state.assistant_active.get()
