@@ -126,7 +126,7 @@ export const beginRecordingLifecycle = async (
     id,
     transcript: "",
     createdAt: dayjs().toISOString(),
-    createdByUserId: getMyEffectiveUserId(state),
+    createdByUserId: getMyEffectiveUserId(),
     isDeleted: false,
     audio: audioSnapshot,
     rawTranscript: "",

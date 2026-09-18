@@ -6,7 +6,6 @@ import {
 } from "@voquill/types";
 import { invoke } from "@tauri-apps/api/core";
 import dayjs from "dayjs";
-import { getAppState } from "../store";
 import { getMyEffectiveUserId } from "../utils/user.utils";
 import { BaseRepo } from "./base.repo";
 
@@ -81,7 +80,7 @@ const fromLocalTranscription = (
   id: transcription.id,
   transcript: transcription.transcript,
   createdAt: dayjs(transcription.timestamp).toISOString(),
-  createdByUserId: getMyEffectiveUserId(getAppState()),
+  createdByUserId: getMyEffectiveUserId(),
   isDeleted: false,
   audio: transcription.audio
     ? {

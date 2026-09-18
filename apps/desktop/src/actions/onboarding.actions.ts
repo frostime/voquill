@@ -114,7 +114,7 @@ export const submitOnboarding = async () => {
     const repo = getUserRepo();
     const preferencesRepo = getUserPreferencesRepo();
     const now = new Date().toISOString();
-    const userId = getMyEffectiveUserId(state);
+    const userId = getMyEffectiveUserId();
 
     const user: User = {
       id: userId,

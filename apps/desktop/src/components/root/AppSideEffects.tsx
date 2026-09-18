@@ -42,7 +42,6 @@ import {
   PasteKeybindSupport,
 } from "../../state/app.state";
 import { getAppState, produceAppState, useAppStore } from "../../store";
-import { AuthUser } from "../../types/auth.types";
 import { OverlayPhase } from "../../types/overlay.types";
 import { registerMembers, registerUsers } from "../../utils/app.utils";
 import {
@@ -86,9 +85,6 @@ type BridgeHotkeyTriggerPayload = {
   hotkey: string;
 };
 
-// Timeout for Firebase Auth initialization (handles cases where IndexedDB hangs on some Linux systems)
-const AUTH_READY_TIMEOUT_MS = 4_000;
-
 // 10 minutes
 const CONFIG_REFRESH_INTERVAL_MS = 1000 * 60 * 10;
 
@@ -105,7 +101,6 @@ export const AppSideEffects = () => {
   const [initReady, setInitReady] = useState(false);
   const [enterpriseReady, setEnterpriseReady] = useState(false);
   const tokensRefreshedRef = useRef(false);
-  const authReadyRef = useRef(false);
   const isEnterprise = useAppStore((state) => state.isEnterprise);
   const allowDevTools = useAppStore(
     (state) => state.enterpriseConfig?.allowDevTools ?? true,
@@ -175,16 +170,6 @@ export const AppSideEffects = () => {
     await ensureRustSessionSync();
   }, []);
 
-  const onAuthStateChanged = (user: AuthUser | null) => {
-    getLogger().info(`Auth state changed (uid=${user?.uid ?? "none"})`);
-    authReadyRef.current = true;
-    setAuthReady(true);
-    produceAppState((draft) => {
-      draft.auth = user;
-      draft.initialized = false;
-    });
-  };
-
   useTauriListen<OverlayPhasePayload>("overlay_phase", (payload) => {
     produceAppState((draft) => {
       draft.overlayPhase = payload.phase;
@@ -237,28 +222,11 @@ export const AppSideEffects = () => {
   }, [isEnterprise, allowDevTools]);
 
   useEffect(() => {
-    authReadyRef.current = false;
-
-    const timeoutId = setTimeout(() => {
-      if (!authReadyRef.current) {
-        getLogger().warning("Auth timed out, proceeding without auth");
-        onAuthStateChanged(null);
-      }
-    }, AUTH_READY_TIMEOUT_MS);
-
-    const unsubscribe = getAuthRepo().onAuthStateChanged(
-      onAuthStateChanged,
-      (error) => {
-        showErrorSnackbar(error);
-        onAuthStateChanged(null);
-      },
-    );
-
-    return () => {
-      clearTimeout(timeoutId);
-      unsubscribe();
-    };
-  }, [isEnterprise]);
+    // There is no account system in this fork, so there is no auth state to
+    // wait for. `state.auth` stays null and every consumer falls back to the
+    // local profile.
+    setAuthReady(true);
+  }, []);
 
   useIntervalAsync(CONFIG_REFRESH_INTERVAL_MS, async () => {
     const config = await getConfigRepo()

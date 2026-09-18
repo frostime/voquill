@@ -126,7 +126,7 @@ export const updateUserPreferences = async (
   saveErrorMessage = "Failed to save AI preferences. Please try again.",
 ): Promise<void> => {
   const state = getAppState();
-  const myUserId = getMyEffectiveUserId(state);
+  const myUserId = getMyEffectiveUserId();
 
   let existing = getMyUserPreferences(state);
   if (!existing) {

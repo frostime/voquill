@@ -39,7 +39,7 @@ function useDiagnosticsData() {
   const storeData = useAppStore((state) => {
     const user = getMyUser(state);
     const member = getMyMember(state);
-    const userId = getMyEffectiveUserId(state);
+    const userId = getMyEffectiveUserId();
     const plan = getEffectivePlan(state);
     const isOnTrial = getIsOnTrial(state);
     const trialDaysRemaining = getTrialDaysRemaining(state);

@@ -85,12 +85,14 @@ export const getEffectiveAgentMode = (state: AppState): AgentMode => {
 export const getMyCloudUserId = (state: AppState): Nullable<string> =>
   state.auth?.uid ?? null;
 
-export const getMyEffectiveUserId = (state: AppState): string => {
-  return state.auth?.uid ?? LOCAL_USER_ID;
-};
+// This fork has no account system: the local profile is the only identity.
+// Account state is deliberately ignored so that a cloud session (Firebase may
+// still restore one from the webview storage of a previous install) can never
+// shadow the local profile and make it unreachable.
+export const getMyEffectiveUserId = (): string => LOCAL_USER_ID;
 
 export const getMyUser = (state: AppState): Nullable<User> => {
-  return getRec(state.userById, getMyEffectiveUserId(state)) ?? null;
+  return getRec(state.userById, getMyEffectiveUserId()) ?? null;
 };
 
 export const getMyPreferredLocale = (state: AppState): Locale => {
