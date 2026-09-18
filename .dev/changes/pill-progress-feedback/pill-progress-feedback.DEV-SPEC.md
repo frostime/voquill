@@ -1,6 +1,6 @@
 ---
 title: Pill Progress Feedback
-status: accepted
+status: completed
 change: pill-progress-feedback
 updated: 2026-09-18
 ---
@@ -19,6 +19,7 @@ Windows native pill 应在录音和 post-stop 处理期间提供准确、紧凑�
 - Native recorder 成功启动后，pill 显示现有动态波形和从 `00:00` 开始的 `MM:SS` 计时；
 - 计时使用单调时钟，不受系统时间调整影响；
 - 新录音必须重新从零开始，离开 Recording 后不再继续计时；
+- 计时区域与波形共用同一个 pill 表面，不得用独立的不透明面板覆盖胶囊本体或硬切波形；
 - pill 保持现有 120×32 外部尺寸，上方写作风格 tooltip 保持现状。
 
 ### Processing

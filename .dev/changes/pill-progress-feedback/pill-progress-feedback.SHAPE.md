@@ -1,6 +1,6 @@
 ---
 title: Pill Progress Feedback Change Shape
-status: accepted
+status: completed
 change: pill-progress-feedback
 updated: 2026-09-18
 ---
