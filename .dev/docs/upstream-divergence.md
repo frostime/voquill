@@ -1,127 +1,110 @@
 ---
 title: 与上游 voquill/voquill 的分叉差异
-description: 本仓库相对上游的删减/修改/保留清单，以及上游变更的取舍规则；修改删除类代码或处理 upstream 同步前必读。
+description: 本 fork 相对上游的差异账本（按时间记录，带 upstream 与本地提交锚点）、当前禁清理项、上游同步规则。修改删除类代码或处理上游同步前必读。
 scope:
   - /**
-updated: 2026-09-17
+updated: 2026-09-18
+last_reviewed_upstream: ef8572a3
 ---
 
 # 与上游 voquill/voquill 的分叉差异
 
-本仓库是 `voquill/voquill` 的 Personal fork，定位：**Windows Desktop 专属的个人长期使用版**。
-分叉决策的完整契约见 `.dev/proposal/voquill-personal-windows-handoff/`（产品决策、范围矩阵、
-SHAPE、两个 SPEC）；当前执行进度见 `.dev/changes/personal-windows-fork/ORCH.md`。
+本仓库是 `voquill/voquill` 的个人 fork：Windows Desktop 专属、免登录、零配置可用。
+本文件是分叉差异的**唯一**权威记录。免费功能保护契约见 `AGENTS.md`。
 
-## 分叉基线
+## 一、当前禁清理项
+
+以下是**有意保留**的设计或依赖，不是待清理的死代码。改动前先看账本对应条目的"遗留"。
+
+| 项 | 保留理由 |
+|---|---|
+| `src-tauri/src/platform/mod.rs` 路由 + `platform/windows/**` | native 能力的信息隐藏边界。实现只剩 Windows，接口仍有价值 |
+| TS 侧 `platform.utils` 与平台运行时判断 | Windows 上恒走 windows 分支，行为无害；删除只会增加无收益改动 |
+| `repos/index.ts` 的 cloud/enterprise 选择分支、`Cloud*Repo`、`@voquill/functions`、`firebase` | 宽容模式：不可达即达成目的（见 M3 条目） |
+| `analytics.utils` 的 `trackX()` stub 及 18 个调用点 | 遥测已移除，调用点是 no-op；删除波及免费功能文件，收益低 |
+| `actions/pricing.actions`、`state/{payment,pricing,login}.state`、免费层 UI 的 `openUpgradePlanDialog` 调用 | 这是"隐藏入口"的实现方式：点击后无对话框渲染，不是悬空引用 |
+| `TrialCountdown`/`OutOfWordsCard`/`FreeWordsRemaining`/`TrialExtensionCard`/`TrialEndedDialog`/`VoquillCloudSetting`/`DeleteAccountDialog`/`FlagTranscriptionDialog` 及其挂载点 | 渲染门在当前账号状态下恒为 false（`plan=community`、`member=null`、未登录）。可整删，但属未实施的 R1 |
+| `src-tauri/examples/gen_bindings.rs` | 用于生成 bindings；其中失效的 macOS 命令已删（见 M6 条目） |
+
+## 二、分叉基线
 
 | 项 | 值 |
 |---|---|
-| 上游仓库 | `https://github.com/voquill/voquill`（remote `upstream`） |
-| 分叉点 | 上游 `ef8572a3`（2026-08-01），此后上游无新提交 |
-| 本仓库起点 | `c37e118`（用户依赖更新，仅 rust_transcription Cargo 版本） |
-| 同步策略 | **不追 merge**。上游仅作 bugfix/reference 来源，需要的修复 cherry-pick 或手工移植 |
+| 上游 | `https://github.com/voquill/voquill`（remote `upstream`） |
+| 上游锚点 | `ef8572a3`（2026-08-01）——最后一次审查过的上游提交 |
+| 分叉起点 | `c37e118`（2026-09-13，仅 rust_transcription 依赖更新） |
+| 同步策略 | 不追 merge。上游只作 bugfix 参考，需要者按第四节规则手工移植 |
 
-## 分叉目标（一句话）
+## 三、差异账本
 
-保留 Windows Desktop 上所有不依赖 Voquill 官方订阅即可使用的功能，删除其余产品线、
-平台与商业耦合；修正录音持久化生命周期（上游 Issue #397：转写失败导致录音丢失）。
+时间正序。每条记录：改动、`upstream 锚点`（当时的对比基准）、本地提交、遗留项。
 
-**功能保守，依赖激进**：默认保留 > 默认删除；删除模块前必须证明未被保留功能使用。
+### 2026-09-16 → 09-17 · M2 产品线与平台收缩
+- upstream 锚点 `ef8572a3`
+- `19c6568b` 删 `enterprise/`、`mobile/`、`cli/`、`apps/docs/`、`packages/flutter_video_looper`、`release/`、官方发布 workflow
+- `db84d467` 平台收缩为 Windows-only：删 `platform/{macos,linux}`、`rust_macos_pill`、`rust_gtk_pill`、平台 Cargo 依赖、conf 的 mac/linux 段、dev 脚本平台分支、CI 矩阵
+- 遗留：`platform/mod.rs` 抽象与 TS 平台工具刻意保留
 
-## 已与上游不同的部分
+### 2026-09-17 · M3 商业体系最小拆除（宽容模式）
+- upstream 锚点 `ef8572a3`
+- `90cdd23c` 删 remote pairing/output 全套（对端 mobile 已删）
+- `52b31349` 删 `components/{login,payment,pricing,enterprise}`、onboarding 账号步骤、router 的 `/login` `/routing` 与 Guard enterprise 节点、main.tsx 的 Stripe/Mixpanel
+- `80f4eb2b` Mixpanel 根修：`analytics.utils` 改为 no-op stub（此前 `mp.people.set` 读未初始化实例直接白屏）
+- 未删除：Firebase init（不发起启动网络请求）、Cloud repo 分支、免费层商业组件
+- 遗留：免费层组件渲染门恒 false；云路径失败时降级（`:5001` 连接拒绝、tone overrides 回退内置）
 
-### 1. 整树删除的产品线
+### 2026-09-17 · 分支拓扑与文档定型
+- `9d8107ed` 首次记录分叉差异与任务编排
+- `bdd4025b` M1–M3 以 `--no-ff` 合入 main 并推送
+- `30218eea` README 重写为 fork 声明（AGPLv3 继承 + 上游署名，声明不含 enterprise 专有部分）；`AGENTS.md` 重写为 fork 入口；`.dev/` 对齐 repo layout
+- `1a8b61f5` 分支拓扑定稿：`main` ⇄ `origin/main`；`upstream-main` 只读跟踪上游；`frostime-main` 删除
 
-上游是包含 Desktop/Enterprise/Mobile/CLI/Docs 的 monorepo。本仓库已删除：
+### 2026-09-17 · M4 可恢复录音生命周期（唯一的行为变更）
+- upstream 锚点 `ef8572a3`
+- `55852714` DEV-SPEC/SHAPE → `2fd81e67` 实现 → `9d52015b` 修长录音数组多余复制 → `75beadd7` 收尾 → `b3653c3b` 合入 main
+- 变更：`stop_recording` 取得有效音频后，先 `await` WAV + History row，再做 STT finalize；STT 成功后、LLM 前保存 raw checkpoint；全程更新同一 ID
+- 相对上游：上游 `ef8572a3` 是"STT 失败即丢录音、且落盘未 await"
 
-- `enterprise/`（admin + gateway + docs，独立产品线）
-- `mobile/`（Flutter 工程）
-- `cli/`
-- `apps/docs/`（文档站点；root `docs/` 的工程文档保留）
-- `packages/flutter_video_looper`
-- `release/`（官方 dev/prod/enterprise 发布渠道配置）
-- `.github/workflows/` 中的官方发布编排（release.yml、_release-desktop-impl、
-  release-cli/docs/enterprise-*、publish-packages、retry-release）
+### 2026-09-18 · M5 胶囊进度反馈
+- `8feeb075` DEV-SPEC/SHAPE → `547ebe0f` 实现 → `3286491f` 修正 → `a1f488e0` 收尾 → `95b84cb0` 合入 main
+- 变更：`OverlayPhase` 由 `idle/recording/loading` 扩为 `idle/recording/saving/transcribing/refining`；录音计时由 native pill 用单调时钟本地计算，不经 IPC 每秒推送
+- `3286491f` 修正原因：原实现用 0.94 黑面板覆盖计时区，在圆角处盖掉胶囊描边并与胶囊本体分层；改为单一表面 + 波形 alpha 淡出
+- 相对上游：上游只有单一 `loading` 态
 
-Desktop 代码内对这些产品的**运行时引用尚未清理**（enterprise flavor、cloud 路径等），
-属后续阶段（M3）工作，见下文"尚未与上游不同的部分"。
+### 2026-09-18 · M6 档位 1 外围清理
+- `40c911be` 删 `gen_bindings.rs` 中 M2 遗留的失效 macOS 命令（此前使 bare `cargo test` 失败）
+- `31b3f311` 删 `docs/{wayland-hotkeys-wlroots,docker}.md`
+- `5f218f9b` `getUserRepo`/`getTermRepo`/`getToneRepo` 固定返回 Local，删除失去引用的 `Cloud/Enterprise{Term,Tone}Repo`、`EnterpriseUserRepo`（行为等价：fork 内 `isLoggedIn()`/`isEnterprise()` 不可达）
+- `244c179f` ORCH 记录 → `192cf763` 合入 main
+- 遗留：其余商业 accessor（member/stripe/tenant/config/enterprise/auth）仍被商业死代码调用，属未实施的 R2
 
-### 2. 平台收缩为 Windows-only
+### 2026-09-18 · R0 零引用代码删除
+- `7d830124` 删 `mixpanel-browser` 与 `@types/mixpanel-browser`、`analytics.utils.getMixpanel()`、`packages/firemix`、`actions/payment.actions.ts`、`components/settings/ChangePasswordDialog.tsx`
+- `1edd772e` 合入 main
+- 依据：静态 import 图（344 文件）与 `slsp references` 均为 0 引用
+- 注意：`@firemix/core`（npm 依赖）**仍在用**，`packages/types` 的 `FiremixTimestamp` 依赖它；只有 `@voquill/firemix` 这个 workspace 包是孤儿
 
-上游支持 macOS/Windows/Linux。本仓库：
+### 2026-09-18 · 文档清理
+- `93f3126a` 删 `docs/checkout-pr-fork.md`、`docs/pathology-page-placeholders.md` 及 9 张无引用图片（`docs/` 约 10.1MB → 90KB）
 
-- 删除 `apps/desktop/src-tauri/src/platform/{macos,linux}`、`packages/rust_macos_pill`、
-  `packages/rust_gtk_pill`、平台专属 Cargo 依赖（cocoa/gtk 等）、`Info.plist`、
-  entitlements、icns、deb/rpm bundle 配置；
-- dev 脚本收敛为 Windows-only（`dev` 直接等价原 `dev:windows`）；
-- CI（build-desktop.yml）矩阵收缩为 Windows-only。
+## 四、上游同步规则
 
-**刻意保留的平台抽象**（未来 agent 不要当死代码清理）：
+`upstream-main` 是上游 main 的镜像：**该分支上永远不产生本地提交**。
 
-- `apps/desktop/src-tauri/src/platform/mod.rs` 的接口路由与 `platform/windows/**` 实现——
-  这是 native 能力（accessibility/input/overlay/hotkey/…）的信息隐藏边界；
-- TS 侧 `platform.utils`、按平台分支的运行时判断（audio chime、keyboard 符号等）——
-  在 Windows 上恒走 windows 分支，行为无害；
-- `packages/rust_windows_pill`、`apps/windows-installer`、updater 相关 CI（defer 到外围清理阶段）。
+```bash
+git fetch upstream main:upstream-main        # 同步（fast-forward）
+git rev-parse upstream-main upstream/main    # 校验两者相等
+git log --oneline <last_reviewed_upstream>..upstream/main   # 只看增量
+```
 
-### 3. 删除时的接线规则
-
-删除导致的编译级引用调整（router/main.tsx/scripts）属于删除的必要代价；
-除此之外不做结构性重构。**商业 UI 入口允许隐藏**（用户决策，2026-09-13），
-但免费功能不得隐藏/降级/伪造（`isPro=true`、`credits=Infinity` 等禁止）。
-
-### 4. 商业产品层拆除（M3，宽容模式）
-
-上游 Desktop 包含账号/订阅/付费体系。本仓库：
-
-- 删除 `components/{payment,pricing,login,enterprise}`、onboarding 的账号引导
-  （SignInForm/UnlockedProForm）；onboarding 直接从 `chooseTranscription` 开始；
-- 删除 remote pairing / remote output 全套（对端 mobile 已删）：`SessionSideEffects`
-  （Firebase 会话广播）、MultiDeviceDialog、MobileAppDialog/ListTile、SenderReceiverChip、
-  5 个 remote actions + 2 个 repo；
-- router 无 `/login`、`/routing` 路由，Guard 图无 enterprise 节点；WelcomePage 仅本地路径；
-- main.tsx 不再初始化 Stripe Elements 与 Mixpanel（Firebase 初始化保留，不发起启动网络请求）。
-
-**宽容模式刻意保留的死代码**（未来 agent 不要当需要修复的悬空引用）：
-`actions/pricing.actions`、`actions/payment.actions`、`actions/login.actions`、
-`state/payment.state`、`state/pricing.state`、`state/login.state`、
-member/stripe/tenant/enterprise/config 的 Cloud 分支 repo、`@voquill/pricing` package、
-免费层 UI 的 `openUpgradePlanDialog` 调用（点击后无对话框渲染，即隐藏入口）。
-
-## 尚未与上游不同的部分（计划内变更，勿误判为"上游原样"）
-
-以下是与上游**暂时相同**、但计划中要改的部分。在对应阶段完成前，它们的当前形态
-不代表最终形态：
-
-| 部分 | 计划 | 阶段 |
-|---|---|---|
-| `term.repo`/`tone.repo`/`user.repo`/`config.repo` 的 Cloud 分支、`repos/index.ts` factory | **保留不动**（宽容模式），cloud 路径不可达即达成目的 | M3 已决（不重构） |
-| `tauri.enterprise*.conf.json`、`getIsEnterpriseEnabled()` flavor 分支 | 保留死代码（宽容模式） | 无后续 |
-| 录音生命周期：`DictationSideEffects.stopRecordingRaw` 先 STT 后 store（STT 失败丢录音） | 改为 persist→history row→STT→raw checkpoint→LLM→final | M4 |
-| `repos/index.ts` 的 cloud/enterprise provider 分支 | 删除不可达分支，不重排 | M5 |
-
-## 上游变更的取舍规则
-
-同步上游修复时按此分类：
+看完增量后更新本文件 front-matter 的 `last_reviewed_upstream`。上游前进导致 `upstream-main` 变动是正常的；只有它与 `upstream/main` **不相等**才是需要修的问题。
 
 | 上游变更类别 | 处理 |
 |---|---|
-| Windows Desktop 核心修复（录音/快捷键/注入/Whisper/SQLite） | **要**，cherry-pick 或手工移植 |
-| 本仓库已删除产品线内的改动 | **忽略** |
-| 新增付费/订阅/Enterprise 能力 | **忽略** |
-| macOS/Linux 平台修复 | **忽略**（无对应实现可移植） |
-| 触及被删接线的修复（如引用已删目录） | 手工移植到本仓库的对应结构 |
-| 触及"刻意保留抽象"的修复（platform/mod.rs、TS platform utils） | **要**，注意保持抽象边界 |
-
-## 免费功能保护契约
-
-任何阶段都适用（完整版见 `handoff/specs/DESKTOP-FEATURE-PRESERVATION.md`）：
-
-> Windows Desktop 上不依赖官方订阅即可使用的功能，默认行为不变。
-> 被删基础设施若被免费功能使用：先迁移到本地实现，再删旧基础设施。
-
-保留能力清单（不变式）：Dictation 全流程、BYOK/local provider、Local Whisper、
-History（列表/播放/retranscribe）、Dictionary、Writing Styles/Tones、Assistant/Chats、
-API Key 管理、本地 SQLite 与设置、Windows hotkey/overlay/injection、windows-installer。
-
-回归验证基线：`.dev/changes/personal-windows-fork/characterization-checklist.md`。
+| Windows Desktop 免费功能修复（录音/快捷键/注入/Whisper/SQLite/History） | **移植**，注意避免覆盖 M4/M5 的生命周期与阶段实现 |
+| 本仓库已删除产品线（enterprise/mobile/cli/docs site）内的改动 | 忽略 |
+| 新增付费/订阅/Enterprise 能力 | 忽略 |
+| macOS/Linux 平台修复 | 忽略（无对应实现） |
+| 触及被删接线的修复 | 手工移植到本仓库对应结构 |
+| 触及禁清理项的修复 | **移植**，并保持抽象边界 |
+| 上游镜像的 tauri.conf / 版本号 / 发布 workflow | 忽略（本 fork 已自有方案，见 `.dev/docs/release.md`） |

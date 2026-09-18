@@ -12,7 +12,8 @@
 - Write clear, maintainable, self-documenting code. No comments except for non-obvious things.
 - Prefer to follow existing patterns (dialogs, state management, API interactions).
 - Use `<FormattedMessage defaultMessage="..." />` or `useIntl()` for i18n — never pass an `id` prop.
-- Tolerated dead code exists by user decision (Cloud repo branches, pricing/login actions, telemetry stubs). Do not "clean it up" unless asked; see `.dev/docs/upstream-divergence.md` for the list.
+- Tolerated dead code exists by user decision. Do not "clean it up" unless asked; the authoritative list of what must stay is the 禁清理项 section of `.dev/docs/upstream-divergence.md`.
+- App version has a single source of truth: `apps/desktop/src-tauri/Cargo.toml`. Do not add the version back to `tauri.conf.json`; see `.dev/docs/release.md`.
 
 ** Repository structure **
 
