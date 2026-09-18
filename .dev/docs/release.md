@@ -71,11 +71,15 @@ apps/desktop/src-tauri/target/release/bundle/
 3. 创建 release 并上传两个安装包：
 
 ```bash
-gh release create v10.0.0 \
+# 本仓库同时有 origin 与 upstream 两个 remote，gh 可能解析到上游仓库，
+# 所以显式指定 --repo（或先跑一次 gh repo set-default frostime/voquill）
+gh release create v10.0.0 --repo frostime/voquill \
   apps/desktop/src-tauri/target/release/bundle/nsis/Voquill_10.0.0_x64-setup.exe \
   apps/desktop/src-tauri/target/release/bundle/msi/Voquill_10.0.0_x64_en-US.msi \
   --title "10.0.0" --notes "<这一版相对上游/上一版的差异>"
 ```
+
+误发时删除：`gh release delete v10.0.0 --repo frostime/voquill --cleanup-tag`。
 
 不需要签名，也不需要 `latest.json`（没有 updater）。
 
