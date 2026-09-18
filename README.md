@@ -6,6 +6,17 @@ This repository is a **personal fork of [voquill/voquill](https://github.com/voq
 - **This fork**: trimmed to a Windows-only desktop app for long-term personal use. Product lines other than the desktop app (enterprise, mobile, CLI, docs site), macOS/Linux platform support, and the commercial/subscription layer have been removed. All free desktop functionality is preserved.
 - **Support**: none. This fork is for my own use; do not expect issues to be handled. Use the upstream project for the official product.
 
+## Data: fully local, no account
+
+Installed, this app runs **entirely locally**: no account, no sign-in, no cloud sync. Local data lives in `%APPDATA%\com.voquill.desktop\` (SQLite database and recordings), so installing over the official build keeps your local history, API keys and preferences.
+
+Anything that used to live in a **Voquill account** is not migrated and cannot be reached from this fork — the official app read those from the cloud:
+
+- Dictionary entries
+- custom Writing Styles
+
+If you had any of those, open the official app once, copy them out manually, and re-add them here after installing.
+
 ## Build
 
 ```bash
