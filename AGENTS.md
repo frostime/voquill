@@ -30,10 +30,6 @@
 - New Tauri commands: define in `commands.rs`, register in `app.rs` invoke_handler, create a repo, use in actions.
 - Platform code is Windows-only (`src-tauri/src/platform/windows/`); `platform/mod.rs` keeps the OS abstraction boundary — implement new OS capabilities behind it.
 
-** `apps/windows-installer` — Windows installer (Tauri) **
-
-- Build on Windows with `pnpm run tauri:build`.
-
 ** `.dev/` — development workspace (tracked) **
 
 - `docs/` durable cross-module docs; `changes/<slug>/` active change artifacts.
