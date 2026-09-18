@@ -29,7 +29,7 @@ updated: 2026-09-18
 
 ### 商业 UI 及其挂载点
 
-这些组件在其渲染门在当前账号状态下恒为 false，因此不可见：
+这些组件的渲染门在当前账号状态下恒为 false，因此不可见：
 
 | 组件 | 渲染门 | 挂载点 |
 |---|---|---|
@@ -67,8 +67,9 @@ updated: 2026-09-18
 - 混合层被免费功能读取，删除会改变到可见行为：`state/app.state.ts` 的
   `auth`/`memberById`/`myTenant`/`config`/`payment`/`pricing` 字段、
   `utils/member.utils.ts`（Header 的 plan 名称与 `isPro` 来自它）、
-  `utils/enterprise.utils.ts`（17 处配置门）、`utils/user.utils.ts`、`actions/user.actions.ts`。
-  动这一层需要一次 characterization 复验，不能只靠 `tsc`。
+  `utils/enterprise.utils.ts`（17 个文件引用）、`utils/user.utils.ts`、`actions/user.actions.ts`。
+  动这一层需要按 `.dev/changes/personal-windows-fork/characterization-checklist.md` 复验一遍，
+  不能只靠 `tsc`。
 
 ### 官方云转写路径（NewServer）
 
