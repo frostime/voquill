@@ -53,6 +53,7 @@ pub(crate) const WAVE_CONFIGS: &[WaveConfig] = &[
 // ── Recording timer / processing phase ──────────────────────────
 pub(crate) const RECORDING_TIMER_WIDTH: f64 = 40.0;
 pub(crate) const RECORDING_TIMER_FONT_SIZE: f64 = 10.0;
+pub(crate) const RECORDING_WAVE_FADE_WIDTH: f64 = 20.0;
 pub(crate) const RECORDING_DIVIDER_ALPHA: f64 = 0.14;
 pub(crate) const PROCESSING_DOT_RADIUS: f64 = 1.5;
 pub(crate) const PROCESSING_DOT_GAP: f64 = 3.0;

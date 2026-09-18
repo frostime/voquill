@@ -100,7 +100,7 @@ fn draw_pill(gfx: &mut Gfx, state: &PillState, ww: f64, wh: f64) {
     match phase {
         Phase::Recording if expand_t > 0.1 => {
             draw_waveform(gfx, rx, ry, pill_w, pill_h, expand_t, state);
-            draw_edge_gradient(gfx, rx, ry, pill_w, pill_h, expand_t);
+            draw_wave_left_fade(gfx, rx, ry, pill_w, pill_h, expand_t);
             draw_recording_timer(gfx, state, rx, ry, pill_w, pill_h, expand_t);
         }
         phase if phase.is_processing() && expand_t > 0.1 => {
@@ -125,6 +125,7 @@ fn draw_waveform(
     let wave_phase = state.wave_phase.get();
     let level = state.current_level.get();
     let baseline = ry + pill_h / 2.0;
+    let fade_end = recording_timer_x(rx, pill_w);
 
     gfx.save();
     gfx.clip_rounded_rect(rx, ry, pill_w, pill_h, pill_h / 2.0);
@@ -134,7 +135,6 @@ fn draw_waveform(
         let amplitude = (pill_h * 0.75 * amplitude_factor).max(1.0);
         let phase = wave_phase + config.phase_offset;
         let alpha = config.opacity * expand_t;
-        let rgba = [1.0, 1.0, 1.0, alpha];
 
         let segments = (pill_w / 2.0).max(72.0) as i32;
         for i in 0..segments {
@@ -146,14 +146,15 @@ fn draw_waveform(
             let theta1 = config.frequency * t1 * TAU + phase;
             let y0 = baseline + amplitude * theta0.sin();
             let y1 = baseline + amplitude * theta1.sin();
-            gfx.draw_line(x0, y0, x1, y1, rgba, STROKE_WIDTH);
+            let fade = ((fade_end - x1) / RECORDING_WAVE_FADE_WIDTH).clamp(0.0, 1.0);
+            gfx.draw_line(x0, y0, x1, y1, [1.0, 1.0, 1.0, alpha * fade], STROKE_WIDTH);
         }
     }
 
     gfx.restore();
 }
 
-fn draw_edge_gradient(
+fn draw_wave_left_fade(
     gfx: &mut Gfx, rx: f64, ry: f64, pill_w: f64, pill_h: f64, expand_t: f64,
 ) {
     let alpha = 0.9 * expand_t;
@@ -170,17 +171,11 @@ fn draw_edge_gradient(
         ],
     );
 
-    let right_start = rx + pill_w * 0.85;
-    gfx.fill_gradient_rect(
-        right_start, ry, pill_w * 0.15, pill_h,
-        right_start, 0.0, rx + pill_w, 0.0,
-        &[
-            (0.0, [0.0, 0.0, 0.0, 0.0]),
-            (1.0, [0.0, 0.0, 0.0, alpha]),
-        ],
-    );
-
     gfx.restore();
+}
+
+fn recording_timer_x(rx: f64, pill_w: f64) -> f64 {
+    rx + pill_w - RECORDING_TIMER_WIDTH
 }
 
 fn draw_recording_timer(
@@ -192,7 +187,7 @@ fn draw_recording_timer(
     pill_h: f64,
     expand_t: f64,
 ) {
-    let timer_x = rx + pill_w - RECORDING_TIMER_WIDTH;
+    let timer_x = recording_timer_x(rx, pill_w);
     let elapsed = state
         .recording_started_at
         .get()
@@ -200,21 +195,6 @@ fn draw_recording_timer(
         .unwrap_or_default();
     let timer_text = format_recording_elapsed(elapsed);
 
-    gfx.save();
-    gfx.clip_rounded_rect(
-        rx,
-        ry,
-        pill_w,
-        pill_h,
-        lerp(COLLAPSED_RADIUS, EXPANDED_RADIUS, expand_t),
-    );
-    gfx.fill_rect(
-        timer_x + 1.0,
-        ry + 1.0,
-        RECORDING_TIMER_WIDTH - 2.0,
-        pill_h - 2.0,
-        [0.0, 0.0, 0.0, 0.94 * expand_t],
-    );
     gfx.fill_rect(
         timer_x,
         ry + 9.0,
@@ -222,7 +202,6 @@ fn draw_recording_timer(
         pill_h - 18.0,
         [1.0, 1.0, 1.0, RECORDING_DIVIDER_ALPHA * expand_t],
     );
-    gfx.restore();
 
     gfx.draw_monospace_text_centered(
         &timer_text,
