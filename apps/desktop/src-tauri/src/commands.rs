@@ -801,6 +801,29 @@ pub async fn transcription_audio_load(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn export_text_file(file_name: String, contents: String) -> Result<bool, String> {
+    let dialog = rfd::AsyncFileDialog::new()
+        .set_file_name(&file_name)
+        .add_filter("Text", &["txt"])
+        .save_file()
+        .await;
+
+    let save_path = match dialog {
+        Some(handle) => handle.path().to_path_buf(),
+        None => return Ok(false),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::write(&save_path, contents.as_bytes())
+            .map_err(|err| format!("Failed to write file: {err}"))?;
+        Ok::<bool, String>(true)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn export_transcription(
     app: AppHandle,
     id: String,

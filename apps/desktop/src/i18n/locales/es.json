@@ -252,6 +252,7 @@
   "everything_the_trial_has": "Todo lo que tiene la prueba",
   "exactly_what_you_said_with_no_editing_or_cleanup": "Exactamente lo que dijiste, sin editar ni limpiar.",
   "example_192_168_1_25_43123": "Ejemplo: 192.168.1.25:43123",
+  "export": "Exportar",
   "export_saved_successfully": "Exportación guardada con éxito",
   "export_transcription": "Exportar transcripción",
   "failed_to_load_api_keys": "Error al cargar claves API",

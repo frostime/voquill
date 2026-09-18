@@ -1,11 +1,15 @@
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import { Button } from "@mui/material";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import { Button, Stack } from "@mui/material";
 import { Term } from "@voquill/types";
 import dayjs from "dayjs";
 import { useCallback, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { showErrorSnackbar } from "../../actions/app.actions";
-import { loadDictionary } from "../../actions/dictionary.actions";
+import {
+  exportDictionary,
+  loadDictionary,
+} from "../../actions/dictionary.actions";
 import { setLocalStorageValue } from "../../actions/local-storage.actions";
 import { useAsyncEffect } from "../../hooks/async.hooks";
 import { getTermRepo } from "../../repos";
@@ -85,13 +89,23 @@ export default function DictionaryPage() {
           <FormattedMessage defaultMessage="Voquill may misunderstand you on occasion. If you see certain words being missed frequently, you can define a replacement rule here to fix the spelling automatically." />
         }
         action={
-          <Button
-            variant="text"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            <FormattedMessage defaultMessage="Add" />
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              variant="text"
+              startIcon={<FileDownloadOutlinedIcon />}
+              onClick={() => void exportDictionary()}
+              disabled={termIds.length === 0}
+            >
+              <FormattedMessage defaultMessage="Export" />
+            </Button>
+            <Button
+              variant="text"
+              startIcon={<AddRoundedIcon />}
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <FormattedMessage defaultMessage="Add" />
+            </Button>
+          </Stack>
         }
         items={termIds}
         computeItemKey={(id) => id}

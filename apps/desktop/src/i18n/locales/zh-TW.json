@@ -252,6 +252,7 @@
   "everything_the_trial_has": "試用版的所有功能",
   "exactly_what_you_said_with_no_editing_or_cleanup": "正如你所說，未經編輯或清理。",
   "example_192_168_1_25_43123": "範例：192.168.1.25:43123",
+  "export": "匯出",
   "export_saved_successfully": "匯出已成功儲存",
   "export_transcription": "匯出文字稿",
   "failed_to_load_api_keys": "無法載入 API 金鑰",

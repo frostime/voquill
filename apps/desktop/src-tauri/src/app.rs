@@ -236,6 +236,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::transcription_update,
             crate::commands::transcription_audio_load,
             crate::commands::purge_stale_transcription_audio,
+            crate::commands::export_text_file,
             crate::commands::export_transcription,
             crate::commands::export_diagnostics,
             crate::commands::term_create,

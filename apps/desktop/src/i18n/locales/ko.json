@@ -252,6 +252,7 @@
   "everything_the_trial_has": "체험판의 모든 기능",
   "exactly_what_you_said_with_no_editing_or_cleanup": "편집이나 정리 없이 정확히 말씀하신 대로.",
   "example_192_168_1_25_43123": "예시: 192.168.1.25:43123",
+  "export": "내보내기",
   "export_saved_successfully": "내보내기 저장이 성공했습니다",
   "export_transcription": "전사 내보내기",
   "failed_to_load_api_keys": "API 키를 로드하지 못했습니다",
