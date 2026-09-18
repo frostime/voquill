@@ -96,11 +96,6 @@ pnpm --filter desktop run build       # tsc + vite
 cd apps/desktop/src-tauri && cargo check
 ```
 
-## 已知问题
+## 已知残留与缺陷
 
-- **`pnpm run gen:bindings` 在本机不可用**：生成的 example 二进制加载失败
-  （`STATUS_ENTRYPOINT_NOT_FOUND`，0xc0000139），尽管它与能正常运行的 app 二进制链接同一组 DLL。
-  改动 Tauri command 后需要手工同步 `packages/desktop-native-apis/src/bindings.ts`，
-  或先解决该环境问题。
-- `apps/desktop/src-tauri/tauri.enterprise*.conf.json` 与 `scripts/start-desktop.*` 是
-  enterprise flavor 残留，没有任何构建使用它们，其中仍保留 updater 配置。
+见 `known-residue.md`。
