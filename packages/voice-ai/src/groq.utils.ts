@@ -6,6 +6,7 @@ import type {
 import { countWords, retry } from "@voquill/utilities";
 import Groq, { toFile } from "groq-sdk/index";
 import {
+  ChatCompletion,
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
 } from "groq-sdk/resources/chat/completions";
@@ -110,6 +111,7 @@ export type GroqGenerateTextArgs = {
   prompt: string;
   imageUrls?: string[];
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type GroqGenerateResponseOutput = {
@@ -124,6 +126,7 @@ export const groqGenerateTextResponse = async ({
   prompt,
   imageUrls = [],
   jsonResponse,
+  requestOptions,
 }: GroqGenerateTextArgs): Promise<GroqGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -146,23 +149,30 @@ export const groqGenerateTextResponse = async ({
       userParts.push({ type: "text", text: prompt });
       messages.push({ role: "user", content: userParts });
 
-      const response = await client.chat.completions.create({
-        messages,
-        model,
+      const requestParams: Record<string, unknown> = {
         max_completion_tokens: 5000,
-        response_format: jsonResponse
-          ? JSON_SCHEMA_SUPPORTED_MODELS.has(model)
-            ? {
-                type: "json_schema",
-                json_schema: {
-                  name: jsonResponse.name,
-                  description: jsonResponse.description,
-                  schema: jsonResponse.schema,
-                },
-              }
-            : { type: "json_object" }
-          : undefined,
-      });
+        ...requestOptions,
+        stream: false,
+        model,
+        messages,
+      };
+      if (jsonResponse) {
+        requestParams.response_format = JSON_SCHEMA_SUPPORTED_MODELS.has(model)
+          ? {
+              type: "json_schema",
+              json_schema: {
+                name: jsonResponse.name,
+                description: jsonResponse.description,
+                schema: jsonResponse.schema,
+              },
+            }
+          : { type: "json_object" };
+      }
+      const response = (await client.chat.completions.create(
+        requestParams as unknown as Parameters<
+          typeof client.chat.completions.create
+        >[0],
+      )) as ChatCompletion;
 
       console.log("groq llm usage:", response.usage);
       if (!response.choices || response.choices.length === 0) {

@@ -12,10 +12,30 @@ type LocalApiKey = {
   keyFull?: string | null;
   transcriptionModel?: string | null;
   postProcessingModel?: string | null;
+  postProcessingOptions?: string | null;
   openrouterConfig?: string | null;
   baseUrl?: string | null;
   azureRegion?: string | null;
   includeV1Path?: boolean | null;
+};
+
+const parsePostProcessingOptions = (
+  optionsStr: string | null | undefined,
+): Record<string, unknown> | null => {
+  if (!optionsStr) return null;
+  try {
+    const parsed: unknown = JSON.parse(optionsStr);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 };
 
 const parseOpenRouterConfig = (
@@ -38,6 +58,9 @@ const fromLocalApiKey = (apiKey: LocalApiKey): ApiKey => ({
   keyFull: apiKey.keyFull ?? null,
   transcriptionModel: apiKey.transcriptionModel ?? null,
   postProcessingModel: apiKey.postProcessingModel ?? null,
+  postProcessingOptions: parsePostProcessingOptions(
+    apiKey.postProcessingOptions,
+  ),
   openRouterConfig: parseOpenRouterConfig(apiKey.openrouterConfig),
   baseUrl: apiKey.baseUrl ?? null,
   azureRegion: apiKey.azureRegion ?? null,
@@ -60,6 +83,7 @@ export type UpdateApiKeyPayload = {
   key?: string;
   transcriptionModel?: string | null;
   postProcessingModel?: string | null;
+  postProcessingOptions?: Record<string, unknown> | null;
   openRouterConfig?: OpenRouterConfig | null;
   baseUrl?: string | null;
   azureRegion?: string | null;
@@ -89,12 +113,16 @@ export class LocalApiKeyRepo extends BaseApiKeyRepo {
   async updateApiKey(payload: UpdateApiKeyPayload): Promise<ApiKey> {
     const request = {
       ...payload,
+      clearPostProcessingOptions: payload.postProcessingOptions === null,
       openRouterConfig:
         payload.openRouterConfig !== undefined
           ? payload.openRouterConfig
             ? JSON.stringify(payload.openRouterConfig)
             : null
           : undefined,
+      postProcessingOptions: payload.postProcessingOptions
+        ? JSON.stringify(payload.postProcessingOptions)
+        : undefined,
     };
     const updated = await invoke<LocalApiKey>("api_key_update", { request });
     return fromLocalApiKey(updated);

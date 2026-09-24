@@ -183,9 +183,11 @@ export type GenerateTextRepoOutput = {
 const getGenTextRepoInternal = ({
   prefs,
   cloudModel,
+  requestOptions,
 }: {
   prefs: GenerativePrefs;
   cloudModel: CloudModel;
+  requestOptions?: Record<string, unknown>;
 }): GenerateTextRepoOutput => {
   const state = getAppState();
 
@@ -215,7 +217,12 @@ const getGenTextRepoInternal = ({
         `Configuring Ollama repo with baseUrl=${baseUrl} and model=${model}`,
       );
       if (model) {
-        repo = new OllamaGenerateTextRepo(`${baseUrl}/v1`, model, ollamaApiKey);
+        repo = new OllamaGenerateTextRepo(
+          `${baseUrl}/v1`,
+          model,
+          ollamaApiKey,
+          requestOptions,
+        );
       } else {
         prefs.warnings.push("No model configured for Ollama post-processing.");
       }
@@ -234,6 +241,7 @@ const getGenTextRepoInternal = ({
           fullUrl,
           model,
           providerApiKey,
+          requestOptions,
         );
       } else {
         prefs.warnings.push(
@@ -252,12 +260,14 @@ const getGenTextRepoInternal = ({
         prefs.apiKeyValue,
         prefs.postProcessingModel,
         providerRouting,
+        requestOptions,
       );
     } else if (prefs.provider === "openai") {
       getLogger().verbose("Configuring OpenAI repo for generate text");
       repo = new OpenAIGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     } else if (prefs.provider === "azure") {
       const apiKeyRecord = getRec(state.apiKeyById, prefs.apiKeyId);
@@ -273,36 +283,42 @@ const getGenTextRepoInternal = ({
         prefs.apiKeyValue,
         endpoint,
         deploymentName,
+        requestOptions,
       );
     } else if (prefs.provider === "deepseek") {
       getLogger().verbose("Configuring Deepseek repo for generate text");
       repo = new DeepseekGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     } else if (prefs.provider === "gemini") {
       getLogger().verbose("Configuring Gemini repo for generate text");
       repo = new GeminiGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     } else if (prefs.provider === "claude") {
       getLogger().verbose("Configuring Claude repo for generate text");
       repo = new ClaudeGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     } else if (prefs.provider === "cerebras") {
       getLogger().verbose("Configuring Cerebras repo for generate text");
       repo = new CerebrasGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     } else {
       getLogger().verbose("Configuring Groq repo for generate text");
       repo = new GroqGenerateTextRepo(
         prefs.apiKeyValue,
         prefs.postProcessingModel,
+        requestOptions,
       );
     }
 
@@ -319,9 +335,12 @@ const getGenTextRepoInternal = ({
 export const getGenerateTextRepo = (): GenerateTextRepoOutput => {
   const state = getAppState();
   const prefs = getGenerativePrefs(state);
+  const selectedApiKey =
+    prefs.mode === "api" ? getRec(state.apiKeyById, prefs.apiKeyId) : null;
   return getGenTextRepoInternal({
     prefs,
     cloudModel: "medium",
+    requestOptions: selectedApiKey?.postProcessingOptions ?? undefined,
   });
 };
 

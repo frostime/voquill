@@ -4,8 +4,8 @@ use crate::domain::{ApiKey, ApiKeyUpdateRequest};
 
 pub async fn insert_api_key(pool: SqlitePool, api_key: &ApiKey) -> Result<ApiKey, sqlx::Error> {
     sqlx::query(
-        "INSERT INTO api_keys (id, name, provider, created_at, salt, key_hash, key_ciphertext, key_suffix, transcription_model, post_processing_model, openrouter_config, base_url, azure_region, include_v1_path)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        "INSERT INTO api_keys (id, name, provider, created_at, salt, key_hash, key_ciphertext, key_suffix, transcription_model, post_processing_model, post_processing_options, openrouter_config, base_url, azure_region, include_v1_path)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
     )
     .bind(&api_key.id)
     .bind(&api_key.name)
@@ -17,6 +17,7 @@ pub async fn insert_api_key(pool: SqlitePool, api_key: &ApiKey) -> Result<ApiKey
     .bind(&api_key.key_suffix)
     .bind(&api_key.transcription_model)
     .bind(&api_key.post_processing_model)
+    .bind(&api_key.post_processing_options)
     .bind(&api_key.openrouter_config)
     .bind(&api_key.base_url)
     .bind(&api_key.azure_region)
@@ -29,7 +30,7 @@ pub async fn insert_api_key(pool: SqlitePool, api_key: &ApiKey) -> Result<ApiKey
 
 pub async fn fetch_api_keys(pool: SqlitePool) -> Result<Vec<ApiKey>, sqlx::Error> {
     let rows = sqlx::query(
-        "SELECT id, name, provider, created_at, salt, key_hash, key_ciphertext, key_suffix, transcription_model, post_processing_model, openrouter_config, base_url, azure_region, include_v1_path
+        "SELECT id, name, provider, created_at, salt, key_hash, key_ciphertext, key_suffix, transcription_model, post_processing_model, post_processing_options, openrouter_config, base_url, azure_region, include_v1_path
          FROM api_keys
          ORDER BY created_at DESC",
     )
@@ -49,6 +50,7 @@ pub async fn fetch_api_keys(pool: SqlitePool) -> Result<Vec<ApiKey>, sqlx::Error
             key_suffix: row.get::<Option<String>, _>("key_suffix"),
             transcription_model: row.get::<Option<String>, _>("transcription_model"),
             post_processing_model: row.get::<Option<String>, _>("post_processing_model"),
+            post_processing_options: row.get::<Option<String>, _>("post_processing_options"),
             openrouter_config: row.get::<Option<String>, _>("openrouter_config"),
             base_url: row.get::<Option<String>, _>("base_url"),
             azure_region: row.get::<Option<String>, _>("azure_region"),
@@ -76,10 +78,15 @@ pub async fn update_api_key(
             key_suffix = CASE WHEN ?6 IS NOT NULL THEN ?6 ELSE key_suffix END,
             transcription_model = CASE WHEN ?7 IS NOT NULL THEN ?7 ELSE transcription_model END,
             post_processing_model = CASE WHEN ?8 IS NOT NULL THEN ?8 ELSE post_processing_model END,
-            openrouter_config = CASE WHEN ?9 IS NOT NULL THEN ?9 ELSE openrouter_config END,
-            base_url = CASE WHEN ?10 IS NOT NULL THEN ?10 ELSE base_url END,
-            azure_region = CASE WHEN ?11 IS NOT NULL THEN ?11 ELSE azure_region END,
-            include_v1_path = CASE WHEN ?12 IS NOT NULL THEN ?12 ELSE include_v1_path END
+            post_processing_options = CASE
+                WHEN ?10 = 1 THEN NULL
+                WHEN ?9 IS NOT NULL THEN ?9
+                ELSE post_processing_options
+            END,
+            openrouter_config = CASE WHEN ?11 IS NOT NULL THEN ?11 ELSE openrouter_config END,
+            base_url = CASE WHEN ?12 IS NOT NULL THEN ?12 ELSE base_url END,
+            azure_region = CASE WHEN ?13 IS NOT NULL THEN ?13 ELSE azure_region END,
+            include_v1_path = CASE WHEN ?14 IS NOT NULL THEN ?14 ELSE include_v1_path END
          WHERE id = ?1",
     )
     .bind(&request.id)
@@ -90,6 +97,8 @@ pub async fn update_api_key(
     .bind(key_suffix)
     .bind(&request.transcription_model)
     .bind(&request.post_processing_model)
+    .bind(&request.post_processing_options)
+    .bind(request.clear_post_processing_options)
     .bind(&request.openrouter_config)
     .bind(&request.base_url)
     .bind(&request.azure_region)

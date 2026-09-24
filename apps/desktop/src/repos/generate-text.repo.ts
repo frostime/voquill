@@ -97,10 +97,16 @@ export class CloudGenerateTextRepo extends BaseGenerateTextRepo {
 export class GroqGenerateTextRepo extends BaseGenerateTextRepo {
   private groqApiKey: string;
   private model: GenerateTextModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.groqApiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = GENERATE_TEXT_MODELS.includes(model as GenerateTextModel)
       ? (model as GenerateTextModel)
       : "openai/gpt-oss-120b";
@@ -113,6 +119,7 @@ export class GroqGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -136,10 +143,16 @@ export class GroqGenerateTextRepo extends BaseGenerateTextRepo {
 export class OpenAIGenerateTextRepo extends BaseGenerateTextRepo {
   private openaiApiKey: string;
   private model: OpenAIGenerateTextModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.openaiApiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = (model as OpenAIGenerateTextModel) ?? "gpt-4o-mini";
   }
 
@@ -150,6 +163,7 @@ export class OpenAIGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -174,12 +188,19 @@ export class OllamaGenerateTextRepo extends BaseGenerateTextRepo {
   private ollamaUrl: string;
   private model: string;
   private apiKey: string;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(url: string, model: string, apiKey?: string) {
+  constructor(
+    url: string,
+    model: string,
+    apiKey?: string,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.ollamaUrl = url;
     this.model = model;
     this.apiKey = apiKey || "ollama";
+    this.requestOptions = requestOptions;
   }
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
@@ -190,6 +211,7 @@ export class OllamaGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
       customFetch: tauriFetch,
     });
 
@@ -217,12 +239,19 @@ export class OpenAICompatibleGenerateTextRepo extends BaseGenerateTextRepo {
   private baseUrl: string;
   private model: string;
   private apiKey: string;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(url: string, model: string, apiKey?: string) {
+  constructor(
+    url: string,
+    model: string,
+    apiKey?: string,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.baseUrl = url;
     this.model = model;
     this.apiKey = apiKey || "";
+    this.requestOptions = requestOptions;
   }
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
@@ -233,6 +262,7 @@ export class OpenAICompatibleGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
       customFetch: tauriFetch,
     });
 
@@ -260,16 +290,19 @@ export class OpenRouterGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private model: string;
   private providerRouting?: OpenRouterProviderRouting;
+  private requestOptions?: Record<string, unknown>;
 
   constructor(
     apiKey: string,
     model: string | null,
     providerRouting?: OpenRouterProviderRouting,
+    requestOptions?: Record<string, unknown>,
   ) {
     super();
     this.apiKey = apiKey;
     this.model = model ?? OPENROUTER_DEFAULT_MODEL;
     this.providerRouting = providerRouting;
+    this.requestOptions = requestOptions;
   }
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
@@ -280,6 +313,7 @@ export class OpenRouterGenerateTextRepo extends BaseGenerateTextRepo {
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
       providerRouting: this.providerRouting,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -304,12 +338,19 @@ export class AzureOpenAIGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private endpoint: string;
   private deploymentName: string;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, endpoint: string, deploymentName: string | null) {
+  constructor(
+    apiKey: string,
+    endpoint: string,
+    deploymentName: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.apiKey = apiKey;
     this.endpoint = endpoint;
     this.deploymentName = deploymentName ?? "gpt-4o-mini";
+    this.requestOptions = requestOptions;
   }
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
@@ -320,6 +361,7 @@ export class AzureOpenAIGenerateTextRepo extends BaseGenerateTextRepo {
       system: input.system ?? undefined,
       prompt: input.prompt,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -344,10 +386,16 @@ export class AzureOpenAIGenerateTextRepo extends BaseGenerateTextRepo {
 export class DeepseekGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private model: DeepseekModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.apiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = (model as DeepseekModel) ?? "deepseek-chat";
   }
 
@@ -358,6 +406,7 @@ export class DeepseekGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -381,10 +430,16 @@ export class DeepseekGenerateTextRepo extends BaseGenerateTextRepo {
 export class GeminiGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private model: GeminiGenerateTextModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.apiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = (model as GeminiGenerateTextModel) ?? "gemini-2.5-flash";
   }
 
@@ -395,6 +450,7 @@ export class GeminiGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -418,10 +474,16 @@ export class GeminiGenerateTextRepo extends BaseGenerateTextRepo {
 export class ClaudeGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private model: ClaudeModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.apiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = (model as ClaudeModel) ?? "claude-sonnet-4-20250514";
   }
 
@@ -432,6 +494,7 @@ export class ClaudeGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {
@@ -455,10 +518,16 @@ export class ClaudeGenerateTextRepo extends BaseGenerateTextRepo {
 export class CerebrasGenerateTextRepo extends BaseGenerateTextRepo {
   private apiKey: string;
   private model: CerebrasModel;
+  private requestOptions?: Record<string, unknown>;
 
-  constructor(apiKey: string, model: string | null) {
+  constructor(
+    apiKey: string,
+    model: string | null,
+    requestOptions?: Record<string, unknown>,
+  ) {
     super();
     this.apiKey = apiKey;
+    this.requestOptions = requestOptions;
     this.model = (model as CerebrasModel) ?? "zai-glm-4.7";
   }
 
@@ -469,6 +538,7 @@ export class CerebrasGenerateTextRepo extends BaseGenerateTextRepo {
       prompt: input.prompt,
       system: input.system ?? undefined,
       jsonResponse: input.jsonResponse,
+      requestOptions: this.requestOptions,
     });
 
     return {

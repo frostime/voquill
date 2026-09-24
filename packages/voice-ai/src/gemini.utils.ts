@@ -149,6 +149,7 @@ export type GeminiGenerateTextArgs = {
   system?: string;
   prompt: string;
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type GeminiGenerateResponseOutput = {
@@ -162,6 +163,7 @@ export const geminiGenerateTextResponse = async ({
   system,
   prompt,
   jsonResponse,
+  requestOptions,
 }: GeminiGenerateTextArgs): Promise<GeminiGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -173,7 +175,7 @@ export const geminiGenerateTextResponse = async ({
         fullPrompt = `${system}\n\n${prompt}`;
       }
 
-      const config: Record<string, unknown> = {};
+      const config: Record<string, unknown> = { ...requestOptions };
       if (jsonResponse) {
         config.responseMimeType = "application/json";
         if (jsonResponse.schema) {

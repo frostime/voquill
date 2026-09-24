@@ -30,6 +30,7 @@ export type ApiKey = {
   keyFull?: string | null;
   transcriptionModel?: string | null;
   postProcessingModel?: string | null;
+  postProcessingOptions?: Record<string, unknown> | null;
   openRouterConfig?: Nullable<OpenRouterConfig>;
   baseUrl?: string | null;
   azureRegion?: string | null;

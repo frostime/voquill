@@ -32,10 +32,7 @@ export const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 /**
  * Create OpenAI client configured for OpenRouter
  */
-const createClient = (
-  apiKey: string,
-  customFetch?: CustomFetch,
-) => {
+const createClient = (apiKey: string, customFetch?: CustomFetch) => {
   return new OpenAI({
     apiKey: apiKey.trim(),
     baseURL: OPENROUTER_BASE_URL,
@@ -137,6 +134,7 @@ export type OpenRouterGenerateTextArgs = {
   prompt: string;
   jsonResponse?: JsonResponse;
   providerRouting?: OpenRouterProviderRouting;
+  requestOptions?: Record<string, unknown>;
   customFetch?: CustomFetch;
 };
 
@@ -156,6 +154,7 @@ export const openrouterGenerateTextResponse = async ({
   prompt,
   jsonResponse,
   providerRouting,
+  requestOptions,
   customFetch,
 }: OpenRouterGenerateTextArgs): Promise<OpenRouterGenerateTextOutput> => {
   return retry({
@@ -170,33 +169,31 @@ export const openrouterGenerateTextResponse = async ({
       messages.push({ role: "user", content: prompt });
 
       // Build the request with optional provider routing
-      const requestParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & {
-        provider?: OpenRouterProviderRouting;
-      } = {
-        messages,
-        model,
+      const requestParams: Record<string, unknown> = {
         temperature: 1,
         max_tokens: 1024,
         top_p: 1,
-        response_format: jsonResponse
-          ? {
-              type: "json_schema",
-              json_schema: {
-                name: jsonResponse.name,
-                description: jsonResponse.description,
-                schema: jsonResponse.schema,
-                strict: true,
-              },
-            }
-          : undefined,
+        ...(providerRouting ? { provider: providerRouting } : {}),
+        ...requestOptions,
+        stream: false,
+        model,
+        messages,
       };
-
-      // Add provider routing if specified
-      if (providerRouting) {
-        requestParams.provider = providerRouting;
+      if (jsonResponse) {
+        requestParams.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: jsonResponse.name,
+            description: jsonResponse.description,
+            schema: jsonResponse.schema,
+            strict: true,
+          },
+        };
       }
 
-      const response = await client.chat.completions.create(requestParams);
+      const response = await client.chat.completions.create(
+        requestParams as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+      );
 
       console.log("openrouter llm usage:", response.usage);
       if (!response.choices || response.choices.length === 0) {

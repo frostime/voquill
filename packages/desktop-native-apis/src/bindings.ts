@@ -899,8 +899,8 @@ export type AccessibilityFocusTarget = { appPid: number; elementIndexPath: numbe
 export type AccessibilityWriteEntry = { appPid: number; elementIndexPath: number[]; fingerprintChain: ElementFingerprint[] | null; value: string; backend?: string | null; jabWriteMethod?: JabWriteMethod; jabStringPath?: JabElementId[] | null }
 export type AccessibilityWriteResult = { succeeded: number; failed: number; errors: string[] }
 export type ApiKeyCreateRequest = { id: string; name: string; provider: string; key: string; baseUrl?: string | null; azureRegion?: string | null; includeV1Path?: boolean | null }
-export type ApiKeyUpdateRequest = { id: string; name?: string | null; key?: string | null; transcriptionModel?: string | null; postProcessingModel?: string | null; openRouterConfig?: string | null; baseUrl?: string | null; azureRegion?: string | null; includeV1Path?: boolean | null }
-export type ApiKeyView = { id: string; name: string; provider: string; createdAt: number; keySuffix?: string | null; keyFull?: string | null; transcriptionModel?: string | null; postProcessingModel?: string | null; openRouterConfig?: string | null; baseUrl?: string | null; azureRegion?: string | null; includeV1Path?: boolean | null }
+export type ApiKeyUpdateRequest = { id: string; name?: string | null; key?: string | null; transcriptionModel?: string | null; postProcessingModel?: string | null; postProcessingOptions?: string | null; clearPostProcessingOptions?: boolean; openRouterConfig?: string | null; baseUrl?: string | null; azureRegion?: string | null; includeV1Path?: boolean | null }
+export type ApiKeyView = { id: string; name: string; provider: string; createdAt: number; keySuffix?: string | null; keyFull?: string | null; transcriptionModel?: string | null; postProcessingModel?: string | null; postProcessingOptions?: string | null; openRouterConfig?: string | null; baseUrl?: string | null; azureRegion?: string | null; includeV1Path?: boolean | null }
 /**
  * Stable, relaunch-surviving identifier for a host application. PIDs change
  * every launch; these fields do not. Populated by `get_focused_field_info`

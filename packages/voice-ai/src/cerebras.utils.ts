@@ -4,7 +4,11 @@ import {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import { retry, countWords } from "@voquill/utilities";
-import type { JsonResponse, LlmChatInput, LlmStreamEvent } from "@voquill/types";
+import type {
+  JsonResponse,
+  LlmChatInput,
+  LlmStreamEvent,
+} from "@voquill/types";
 import { openaiCompatibleStreamChat } from "./openai.utils";
 
 export const CEREBRAS_MODELS = [
@@ -53,6 +57,7 @@ export type CerebrasGenerateTextArgs = {
   system?: string;
   prompt: string;
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type CerebrasGenerateResponseOutput = {
@@ -66,6 +71,7 @@ export const cerebrasGenerateTextResponse = async ({
   system,
   prompt,
   jsonResponse,
+  requestOptions,
 }: CerebrasGenerateTextArgs): Promise<CerebrasGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -87,16 +93,16 @@ export const cerebrasGenerateTextResponse = async ({
       messages.push({ role: "user", content: userParts });
 
       const params: Record<string, unknown> = {
-        messages,
-        model,
         temperature: 1,
         max_tokens: 1024,
         top_p: 1,
-        response_format: jsonResponse ? { type: "json_object" } : undefined,
+        ...(model === "zai-glm-4.7" ? { reasoning_effort: "none" } : {}),
+        ...requestOptions,
+        stream: false,
+        model,
+        messages,
       };
-      if (model === "zai-glm-4.7") {
-        params.reasoning_effort = "none";
-      }
+      if (jsonResponse) params.response_format = { type: "json_object" };
 
       const response = await client.chat.completions.create(
         params as unknown as OpenAI.ChatCompletionCreateParamsNonStreaming,

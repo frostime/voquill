@@ -1,10 +1,15 @@
 import OpenAI from "openai";
 import {
+  ChatCompletion,
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import { retry, countWords } from "@voquill/utilities";
-import type { JsonResponse, LlmChatInput, LlmStreamEvent } from "@voquill/types";
+import type {
+  JsonResponse,
+  LlmChatInput,
+  LlmStreamEvent,
+} from "@voquill/types";
 import { openaiCompatibleStreamChat } from "./openai.utils";
 
 export const DEEPSEEK_MODELS = ["deepseek-chat", "deepseek-reasoner"] as const;
@@ -48,6 +53,7 @@ export type DeepseekGenerateTextArgs = {
   system?: string;
   prompt: string;
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type DeepseekGenerateResponseOutput = {
@@ -61,6 +67,7 @@ export const deepseekGenerateTextResponse = async ({
   system,
   prompt,
   jsonResponse,
+  requestOptions,
 }: DeepseekGenerateTextArgs): Promise<DeepseekGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -81,14 +88,21 @@ export const deepseekGenerateTextResponse = async ({
       userParts.push({ type: "text", text: finalPrompt });
       messages.push({ role: "user", content: userParts });
 
-      const response = await client.chat.completions.create({
-        messages,
-        model,
+      const requestParams: Record<string, unknown> = {
         temperature: 1,
         max_tokens: 1024,
         top_p: 1,
-        response_format: jsonResponse ? { type: "json_object" } : undefined,
-      });
+        ...requestOptions,
+        stream: false,
+        model,
+        messages,
+      };
+      if (jsonResponse) requestParams.response_format = { type: "json_object" };
+      const response = (await client.chat.completions.create(
+        requestParams as unknown as Parameters<
+          typeof client.chat.completions.create
+        >[0],
+      )) as ChatCompletion;
 
       console.log("deepseek llm usage:", response.usage);
       if (!response.choices || response.choices.length === 0) {
