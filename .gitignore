@@ -56,3 +56,5 @@ target/
 nul
 
 *.exe
+
+.pi-input.md
