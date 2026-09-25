@@ -7,7 +7,7 @@
 
 ## [Unreleased]
 
-## [10.0.4-beta.1] - 2026-09-25
+## [10.0.4] - 2026-09-25
 
 ### Added
 
@@ -63,8 +63,8 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.4-beta.1...HEAD
-[10.0.4-beta.1]: https://github.com/frostime/voquill/compare/v10.0.3...v10.0.4-beta.1
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.4...HEAD
+[10.0.4]: https://github.com/frostime/voquill/compare/v10.0.3...v10.0.4
 [10.0.3]: https://github.com/frostime/voquill/compare/v10.0.2...v10.0.3
 [10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2
 [10.0.1]: https://github.com/frostime/voquill/compare/v10.0.0...v10.0.1
