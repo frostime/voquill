@@ -11,6 +11,7 @@ import { countWords, retry } from "@voquill/utilities";
 import OpenAI, { toFile } from "openai";
 import type { CustomFetch } from "./types";
 import type {
+  ChatCompletion,
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
   ChatCompletionTool,
@@ -126,6 +127,7 @@ export type OpenAIGenerateTextArgs = {
   prompt: string;
   imageUrls?: string[];
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
   customFetch?: CustomFetch;
 };
 
@@ -142,6 +144,7 @@ export const openaiGenerateTextResponse = async ({
   prompt,
   imageUrls = [],
   jsonResponse,
+  requestOptions,
   customFetch,
 }: OpenAIGenerateTextArgs): Promise<OpenAIGenerateResponseOutput> => {
   return retry({
@@ -165,24 +168,33 @@ export const openaiGenerateTextResponse = async ({
       userParts.push({ type: "text", text: prompt });
       messages.push({ role: "user", content: userParts });
 
-      const response = await client.chat.completions.create({
-        messages,
-        model,
+      const requestParams: Record<string, unknown> = {
         temperature: 1,
         max_completion_tokens: 1024,
         top_p: 1,
-        response_format: jsonResponse
-          ? {
-              type: "json_schema",
-              json_schema: {
-                name: jsonResponse.name,
-                description: jsonResponse.description,
-                schema: jsonResponse.schema,
-                strict: true,
-              },
-            }
-          : undefined,
-      });
+        ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
+        stream: false,
+        model,
+        messages,
+      };
+      if (jsonResponse) {
+        requestParams.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: jsonResponse.name,
+            description: jsonResponse.description,
+            schema: jsonResponse.schema,
+            strict: true,
+          },
+        };
+      }
+
+      const response = (await client.chat.completions.create(
+        requestParams as unknown as Parameters<
+          typeof client.chat.completions.create
+        >[0],
+      )) as ChatCompletion;
 
       console.log("openai llm usage:", response.usage);
       if (!response.choices || response.choices.length === 0) {

@@ -1082,6 +1082,7 @@ pub async fn api_key_create(
         key_suffix: protected.key_suffix,
         transcription_model: None,
         post_processing_model: None,
+        post_processing_options: None,
         openrouter_config: None,
         base_url,
         azure_region,

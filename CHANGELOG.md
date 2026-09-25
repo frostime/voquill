@@ -5,6 +5,14 @@
 
 代码层面的分叉差异（哪些实现不能被上游同步覆盖）记在 [`.dev/docs/upstream-divergence.md`](.dev/docs/upstream-divergence.md)。
 
+## [Unreleased]
+
+## [10.0.4-beta.1] - 2026-09-25
+
+### Added
+
+- 润色 API Key 支持配置 provider 原生 JSON 请求参数，可用于调整推理程度、温度和 token 限制等选项。
+
 ## [10.0.3] - 2026-09-19
 
 ### Fixed
@@ -55,7 +63,8 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.3...HEAD
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.4-beta.1...HEAD
+[10.0.4-beta.1]: https://github.com/frostime/voquill/compare/v10.0.3...v10.0.4-beta.1
 [10.0.3]: https://github.com/frostime/voquill/compare/v10.0.2...v10.0.3
 [10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2
 [10.0.1]: https://github.com/frostime/voquill/compare/v10.0.0...v10.0.1

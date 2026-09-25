@@ -3,7 +3,7 @@ title: 与上游 voquill/voquill 的分叉差异
 description: 本 fork 相对上游的差异（按专题记录，附提交范围）、当前禁清理项、上游同步规则。修改删除类代码或处理上游同步前必读。
 scope:
   - /**
-updated: 2026-09-18
+updated: 2026-09-25
 last_reviewed_upstream: ef8572a3
 ---
 
@@ -119,6 +119,7 @@ last_reviewed_upstream: ef8572a3
 上游没有对应物的功能细节只在 `CHANGELOG.md`，这里留一行索引，便于知道哪些行为在上游是找不到的。
 
 - 字典导出为 txt（一个词一行）——10.0.2（`e85f5fb5`）
+- 润色 API Key 可配置 provider 原生 JSON 请求参数（`postProcessingOptions`）——10.0.4-beta.1（`9046c6ea`、`d59a0538`）；8 个 `voice-ai` adapter 与 API Key CRUD 因此带有本地专用的 `requestOptions` 透传，同步上游这些文件时需保留
 
 ## 五、上游同步规则
 

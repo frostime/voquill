@@ -41,6 +41,7 @@ import { OpenAICompatibleModelPicker } from "./OpenAICompatibleModelPicker";
 import { OpenRouterModelPicker } from "./OpenRouterModelPicker";
 import { OpenRouterProviderRouting } from "./OpenRouterProviderRouting";
 import { ProviderFormFields } from "./ProviderFormFields";
+import { PostProcessingRequestOptionsField } from "./PostProcessingRequestOptionsField";
 
 export type ApiKeyListContext = "transcription" | "post-processing";
 
@@ -48,6 +49,7 @@ type ApiKeyListProps = {
   selectedApiKeyId: string | null;
   onChange: (id: string | null) => void;
   context: ApiKeyListContext;
+  showPostProcessingOptions?: boolean;
 };
 
 const getAvailableProviders = (context: ApiKeyListContext): ApiKeyProvider[] =>
@@ -570,6 +572,8 @@ const ApiKeyCard = ({
   testing,
   deleting,
   onModelChange,
+  onOptionsChange,
+  showPostProcessingOptions,
   context,
 }: {
   apiKey: SettingsApiKey;
@@ -581,6 +585,8 @@ const ApiKeyCard = ({
   onDelete: () => void;
   deleting: boolean;
   onModelChange: (model: string | null) => void;
+  onOptionsChange: (options: Record<string, unknown> | null) => Promise<void>;
+  showPostProcessingOptions: boolean;
   context: ApiKeyListContext;
 }) => {
   const config = useMemo(
@@ -688,6 +694,13 @@ const ApiKeyCard = ({
         onModelChange={onModelChange}
         disabled={testing || deleting}
       />
+      {showPostProcessingOptions && selected ? (
+        <PostProcessingRequestOptionsField
+          value={apiKey.postProcessingOptions}
+          disabled={testing || deleting}
+          onSave={onOptionsChange}
+        />
+      ) : null}
     </Paper>
   );
 };
@@ -699,6 +712,7 @@ export const ApiKeyList = ({
   selectedApiKeyId,
   onChange,
   context,
+  showPostProcessingOptions = false,
 }: ApiKeyListProps) => {
   const allApiKeys = useAppStore((state) => state.settings.apiKeys);
 
@@ -820,6 +834,13 @@ export const ApiKeyList = ({
   const handleRetryLoad = useCallback(() => {
     void loadApiKeys();
   }, []);
+
+  const handleOptionsChange = useCallback(
+    async (apiKeyId: string, options: Record<string, unknown> | null) => {
+      await updateApiKey({ id: apiKeyId, postProcessingOptions: options });
+    },
+    [],
+  );
 
   const handleModelChange = useCallback(
     async (apiKeyId: string, model: string | null) => {
@@ -972,6 +993,10 @@ export const ApiKeyList = ({
                 onDelete={() => handleRequestDelete(apiKey)}
                 deleting={deletingApiKeyId === apiKey.id}
                 onModelChange={(model) => handleModelChange(apiKey.id, model)}
+                onOptionsChange={(options) =>
+                  handleOptionsChange(apiKey.id, options)
+                }
+                showPostProcessingOptions={showPostProcessingOptions}
                 context={context}
               />
             ),

@@ -1,7 +1,14 @@
 import { AzureOpenAI } from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type {
+  ChatCompletion,
+  ChatCompletionMessageParam,
+} from "openai/resources/chat/completions";
 import { retry, countWords } from "@voquill/utilities";
-import type { JsonResponse, LlmChatInput, LlmStreamEvent } from "@voquill/types";
+import type {
+  JsonResponse,
+  LlmChatInput,
+  LlmStreamEvent,
+} from "@voquill/types";
 import { openaiCompatibleStreamChat } from "./openai.utils";
 
 export const AZURE_OPENAI_MODELS = [
@@ -21,6 +28,7 @@ export type AzureOpenAIGenerateTextArgs = {
   system?: string;
   prompt: string;
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type AzureOpenAIGenerateResponseOutput = {
@@ -44,6 +52,7 @@ export const azureOpenAIGenerateText = async ({
   system,
   prompt,
   jsonResponse,
+  requestOptions,
 }: AzureOpenAIGenerateTextArgs): Promise<AzureOpenAIGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -56,23 +65,31 @@ export const azureOpenAIGenerateText = async ({
       }
       messages.push({ role: "user", content: prompt });
 
-      const response = await client.chat.completions.create({
-        messages,
-        model: deploymentName,
+      const requestParams: Record<string, unknown> = {
         temperature: 1,
         max_completion_tokens: 1024,
-        response_format: jsonResponse
-          ? {
-              type: "json_schema",
-              json_schema: {
-                name: jsonResponse.name,
-                description: jsonResponse.description,
-                schema: jsonResponse.schema,
-                strict: true,
-              },
-            }
-          : undefined,
-      });
+        ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
+        stream: false,
+        model: deploymentName,
+        messages,
+      };
+      if (jsonResponse) {
+        requestParams.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: jsonResponse.name,
+            description: jsonResponse.description,
+            schema: jsonResponse.schema,
+            strict: true,
+          },
+        };
+      }
+      const response = (await client.chat.completions.create(
+        requestParams as unknown as Parameters<
+          typeof client.chat.completions.create
+        >[0],
+      )) as ChatCompletion;
 
       const content = response.choices?.[0]?.message?.content || "";
       return {

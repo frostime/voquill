@@ -53,6 +53,7 @@ export type ClaudeGenerateTextArgs = {
   system?: string;
   prompt: string;
   jsonResponse?: JsonResponse;
+  requestOptions?: Record<string, unknown>;
 };
 
 export type ClaudeGenerateResponseOutput = {
@@ -66,6 +67,7 @@ export const claudeGenerateTextResponse = async ({
   system,
   prompt,
   jsonResponse,
+  requestOptions,
 }: ClaudeGenerateTextArgs): Promise<ClaudeGenerateResponseOutput> => {
   return retry({
     retries: 3,
@@ -78,8 +80,11 @@ export const claudeGenerateTextResponse = async ({
       }
 
       const response = await client.messages.create({
-        model,
         max_tokens: 1024,
+        ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
+        stream: false,
+        model,
         system: system ?? undefined,
         messages: [{ role: "user", content: finalPrompt }],
       });
@@ -196,9 +201,7 @@ function llmMessagesToClaude(messages: LlmMessage[]): {
   return { system, messages: out };
 }
 
-function claudeFinishReason(
-  raw: string | null | undefined,
-): LlmFinishReason {
+function claudeFinishReason(raw: string | null | undefined): LlmFinishReason {
   switch (raw) {
     case "end_turn":
       return "stop";
@@ -237,11 +240,7 @@ export async function* claudeStreamChat({
         }))
       : undefined;
 
-  let toolChoice:
-    | ToolChoiceAuto
-    | ToolChoiceAny
-    | ToolChoiceTool
-    | undefined;
+  let toolChoice: ToolChoiceAuto | ToolChoiceAny | ToolChoiceTool | undefined;
   if (input.toolChoice && tools) {
     if (typeof input.toolChoice === "string") {
       switch (input.toolChoice) {
