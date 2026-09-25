@@ -93,6 +93,7 @@ export const deepseekGenerateTextResponse = async ({
         max_tokens: 1024,
         top_p: 1,
         ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
         stream: false,
         model,
         messages,

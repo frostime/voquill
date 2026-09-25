@@ -128,92 +128,82 @@ mod tests {
 
     #[test]
     fn post_processing_options_can_be_set_retained_and_cleared() {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(async {
-                let pool = SqlitePoolOptions::new()
-                    .max_connections(1)
-                    .connect("sqlite::memory:")
-                    .await
-                    .unwrap();
+        tauri::async_runtime::block_on(async {
+            let pool = SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
 
-                for migration in [
-                    include_str!("migrations/009_api_keys.sql"),
-                    include_str!("migrations/026_api_key_model.sql"),
-                    include_str!("migrations/034_api_key_openrouter_config.sql"),
-                    include_str!("migrations/035_api_key_base_url.sql"),
-                    include_str!("migrations/036_api_key_azure_region.sql"),
-                    include_str!("migrations/056_api_key_include_v1_path.sql"),
-                    include_str!("migrations/069_api_key_post_processing_options.sql"),
-                ] {
-                    sqlx::raw_sql(migration).execute(&pool).await.unwrap();
+            for migration in crate::db::migrations() {
+                if matches!(migration.kind, tauri_plugin_sql::MigrationKind::Up) {
+                    sqlx::raw_sql(migration.sql).execute(&pool).await.unwrap();
                 }
+            }
 
-                let api_key = ApiKey {
-                    id: "test-key".into(),
-                    name: "Test".into(),
-                    provider: "openai".into(),
-                    created_at: 1,
-                    salt: "salt".into(),
-                    key_hash: "hash".into(),
-                    key_ciphertext: "ciphertext".into(),
-                    key_suffix: None,
-                    transcription_model: None,
-                    post_processing_model: None,
-                    post_processing_options: None,
-                    openrouter_config: None,
-                    base_url: None,
-                    azure_region: None,
-                    include_v1_path: None,
-                };
-                insert_api_key(pool.clone(), &api_key).await.unwrap();
-                assert_eq!(
-                    fetch_api_keys(pool.clone()).await.unwrap()[0].post_processing_options,
-                    None
-                );
+            let api_key = ApiKey {
+                id: "test-key".into(),
+                name: "Test".into(),
+                provider: "openai".into(),
+                created_at: 1,
+                salt: "salt".into(),
+                key_hash: "hash".into(),
+                key_ciphertext: "ciphertext".into(),
+                key_suffix: None,
+                transcription_model: None,
+                post_processing_model: None,
+                post_processing_options: None,
+                openrouter_config: None,
+                base_url: None,
+                azure_region: None,
+                include_v1_path: None,
+            };
+            insert_api_key(pool.clone(), &api_key).await.unwrap();
+            assert_eq!(
+                fetch_api_keys(pool.clone()).await.unwrap()[0].post_processing_options,
+                None
+            );
 
-                let mut request = ApiKeyUpdateRequest {
-                    id: api_key.id.clone(),
-                    name: None,
-                    key: None,
-                    transcription_model: None,
-                    post_processing_model: None,
-                    post_processing_options: Some(r#"{"thinking":{"level":"low"}}"#.into()),
-                    clear_post_processing_options: false,
-                    openrouter_config: None,
-                    base_url: None,
-                    azure_region: None,
-                    include_v1_path: None,
-                };
-                update_api_key(pool.clone(), &request, None, None, None, None)
-                    .await
-                    .unwrap();
-                let saved = fetch_api_keys(pool.clone()).await.unwrap();
-                assert_eq!(
-                    saved[0].post_processing_options,
-                    request.post_processing_options
-                );
+            let mut request = ApiKeyUpdateRequest {
+                id: api_key.id.clone(),
+                name: None,
+                key: None,
+                transcription_model: None,
+                post_processing_model: None,
+                post_processing_options: Some(r#"{"thinking":{"level":"low"}}"#.into()),
+                clear_post_processing_options: false,
+                openrouter_config: None,
+                base_url: None,
+                azure_region: None,
+                include_v1_path: None,
+            };
+            update_api_key(pool.clone(), &request, None, None, None, None)
+                .await
+                .unwrap();
+            let saved = fetch_api_keys(pool.clone()).await.unwrap();
+            assert_eq!(
+                saved[0].post_processing_options,
+                request.post_processing_options
+            );
 
-                request.post_processing_options = None;
-                update_api_key(pool.clone(), &request, None, None, None, None)
-                    .await
-                    .unwrap();
-                let retained = fetch_api_keys(pool.clone()).await.unwrap();
-                assert_eq!(
-                    retained[0].post_processing_options,
-                    saved[0].post_processing_options
-                );
+            request.post_processing_options = None;
+            update_api_key(pool.clone(), &request, None, None, None, None)
+                .await
+                .unwrap();
+            let retained = fetch_api_keys(pool.clone()).await.unwrap();
+            assert_eq!(
+                retained[0].post_processing_options,
+                saved[0].post_processing_options
+            );
 
-                request.clear_post_processing_options = true;
-                update_api_key(pool.clone(), &request, None, None, None, None)
-                    .await
-                    .unwrap();
-                assert_eq!(
-                    fetch_api_keys(pool).await.unwrap()[0].post_processing_options,
-                    None
-                );
-            });
+            request.clear_post_processing_options = true;
+            update_api_key(pool.clone(), &request, None, None, None, None)
+                .await
+                .unwrap();
+            assert_eq!(
+                fetch_api_keys(pool).await.unwrap()[0].post_processing_options,
+                None
+            );
+        });
     }
 }

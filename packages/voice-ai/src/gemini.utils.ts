@@ -176,6 +176,7 @@ export const geminiGenerateTextResponse = async ({
       }
 
       const config: Record<string, unknown> = { ...requestOptions };
+      // App-owned: the requested JSON shape wins over user options.
       if (jsonResponse) {
         config.responseMimeType = "application/json";
         if (jsonResponse.schema) {

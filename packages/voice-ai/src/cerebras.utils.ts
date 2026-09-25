@@ -98,6 +98,7 @@ export const cerebrasGenerateTextResponse = async ({
         top_p: 1,
         ...(model === "zai-glm-4.7" ? { reasoning_effort: "none" } : {}),
         ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
         stream: false,
         model,
         messages,

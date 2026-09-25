@@ -69,6 +69,7 @@ export const azureOpenAIGenerateText = async ({
         temperature: 1,
         max_completion_tokens: 1024,
         ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
         stream: false,
         model: deploymentName,
         messages,

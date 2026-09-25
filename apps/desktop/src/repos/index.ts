@@ -340,6 +340,7 @@ export const getGenerateTextRepo = (): GenerateTextRepoOutput => {
   return getGenTextRepoInternal({
     prefs,
     cloudModel: "medium",
+    // Post-processing only: the agent session must not receive these options.
     requestOptions: selectedApiKey?.postProcessingOptions ?? undefined,
   });
 };

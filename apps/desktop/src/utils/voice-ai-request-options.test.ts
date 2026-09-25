@@ -40,6 +40,7 @@ describe("post-processing request options", () => {
         temperature: 0.2,
         model: "user-selected-model-must-not-win",
         messages: [],
+        stream: true,
         response_format: { type: "json_object" },
       },
       jsonResponse: {

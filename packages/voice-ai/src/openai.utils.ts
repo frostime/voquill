@@ -173,6 +173,7 @@ export const openaiGenerateTextResponse = async ({
         max_completion_tokens: 1024,
         top_p: 1,
         ...requestOptions,
+        // App-owned: keep these after the user options so they always win.
         stream: false,
         model,
         messages,
