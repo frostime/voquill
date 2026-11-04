@@ -1,5 +1,5 @@
 ---
-status: draft
+status: locked
 ---
 
 # 本地模型：下载源、模型目录与 Qwen3-ASR 内置
@@ -112,7 +112,7 @@ apps/desktop/
 
 > Phase 2 的形状在 SPIKE 后改变：原方案"引入 transcribe-cpp 并编译 C++"在 MSVC 上实测失败（三次尝试，见 `spike-transcribe-cpp-build.md`）；改为运行时加载上游预编译 DLL（147 个 C ABI 导出，含 Vulkan 后端，不需要 Vulkan SDK 参与构建）。因此 CMake 不再参与 sidecar 构建，`gpu-vulkan` 特性也不再与 Qwen 相关。
 
-### Phase 3（可选，独立于 Qwen）：默认使用独显
+### Phase 3（必需）：全部本地模型使用独显
 
 ```text
 packages/rust_transcription/src/
@@ -123,9 +123,10 @@ apps/desktop/src/
 ├── utils/local-transcription.utils.ts             modify  +5–10   类型 + “独显才可选”
 ├── actions/settings-local-transcription.actions.ts modify  +10–20  偏好为空时默认选独显
 └── utils/ai.utils.ts                              modify  +5–10   首次应用偏好时同一规则
-```
 
-规则：只把独显作为 GPU 选项（核显不出现）；仅在用户从未选择过设备时默认选独显，已明确选 CPU 的用户不被改写。Qwen 侧不需要额外代码——它由引擎在候选设备中自行选择。
+.github/workflows/gpu-build-test.yml  create  +90–110   构建期验证（已提交）
+
+规则：只把独显作为 GPU 选项（核显不出现）；仅在用户从未选择过设备时默认选独显，已明确选 CPU 的用户不被改写。Whisper 依赖真实构建的显卡版 sidecar；Qwen 由 DLL 内的引擎在独显中自行选择。二者不得出现"一个用显卡、一个用 CPU"的混合状态。
 
 ## B. Call & Dependency Shift
 
