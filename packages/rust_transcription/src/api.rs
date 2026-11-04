@@ -94,6 +94,12 @@ struct ModelStatusQuery {
     validate: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadRequest {
+    prefer_mirror: Option<bool>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ModelStatusResponse {
@@ -107,14 +113,28 @@ struct ModelStatusResponse {
 async fn download_model(
     State(state): State<AppState>,
     Path(path): Path<ModelPath>,
+    body: Option<Json<DownloadRequest>>,
 ) -> Result<Json<crate::downloads::DownloadJobSnapshot>, ApiError> {
     let model = parse_model(&path.model)?;
     let destination = state.model_path(model);
-    let url = model.download_url();
+    let prefer_mirror = body
+        .and_then(|Json(request)| request.prefer_mirror)
+        .unwrap_or(true);
+    let sources = model.download_sources(prefer_mirror);
+    let expected_bytes = match model.url_override() {
+        Some(_) => None,
+        None => Some(model.expected_bytes()),
+    };
 
     let snapshot = state
         .downloads
-        .start_or_get_active(model, url, destination, state.http_client.clone())
+        .start_or_get_active(
+            model,
+            sources,
+            expected_bytes,
+            destination,
+            state.http_client.clone(),
+        )
         .await
         .map_err(|err| ApiError::internal("download_start_failed", err))?;
 

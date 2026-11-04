@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use futures_util::StreamExt;
@@ -51,31 +51,34 @@ pub struct DownloadRegistry {
     inner: Arc<Mutex<DownloadStore>>,
 }
 
+enum DownloadAttemptError {
+    Remote(String),
+    Local(String),
+}
+
 impl DownloadRegistry {
     pub async fn start_or_get_active(
         &self,
         model: WhisperModel,
-        download_url: String,
+        sources: Vec<String>,
+        expected_bytes: Option<u64>,
         destination: PathBuf,
         client: reqwest::Client,
     ) -> Result<DownloadJobSnapshot, String> {
         if let Some(existing_size) = existing_model_file_size(&destination).await {
-            let job_id = Uuid::new_v4();
-            let mut store = self.inner.lock().await;
-            store.jobs.insert(
-                job_id,
-                DownloadJobRecord {
-                    model,
-                    status: DownloadJobStatus::Completed,
-                    bytes_downloaded: existing_size,
-                    total_bytes: Some(existing_size),
-                    error: None,
-                },
-            );
+            let matches_expected = match expected_bytes {
+                Some(expected) => expected == existing_size,
+                None => true,
+            };
 
-            return store
-                .snapshot(job_id)
-                .ok_or_else(|| "failed to create completed job snapshot".to_string());
+            if matches_expected {
+                return self
+                    .record_completed(model, existing_size)
+                    .await
+                    .ok_or_else(|| "failed to create completed job snapshot".to_string());
+            }
+
+            let _ = tokio::fs::remove_file(&destination).await;
         }
 
         let (job_id, snapshot) = {
@@ -111,7 +114,7 @@ impl DownloadRegistry {
         let registry = self.clone();
         tokio::spawn(async move {
             if let Err(err) = registry
-                .run_download_job(job_id, model, download_url, destination, client)
+                .run_download_job(job_id, model, sources, expected_bytes, destination, client)
                 .await
             {
                 let _ = registry.mark_failed(job_id, model, err).await;
@@ -137,11 +140,32 @@ impl DownloadRegistry {
         store.snapshot(job_id)
     }
 
+    async fn record_completed(
+        &self,
+        model: WhisperModel,
+        existing_size: u64,
+    ) -> Option<DownloadJobSnapshot> {
+        let job_id = Uuid::new_v4();
+        let mut store = self.inner.lock().await;
+        store.jobs.insert(
+            job_id,
+            DownloadJobRecord {
+                model,
+                status: DownloadJobStatus::Completed,
+                bytes_downloaded: existing_size,
+                total_bytes: Some(existing_size),
+                error: None,
+            },
+        );
+        store.snapshot(job_id)
+    }
+
     async fn run_download_job(
         &self,
         job_id: Uuid,
         model: WhisperModel,
-        download_url: String,
+        sources: Vec<String>,
+        expected_bytes: Option<u64>,
         destination: PathBuf,
         client: reqwest::Client,
     ) -> Result<(), String> {
@@ -160,70 +184,114 @@ impl DownloadRegistry {
 
         let temp_path = destination.with_file_name(format!("{filename}.{job_id}.download"));
 
-        let _ = tokio::fs::remove_file(&temp_path).await;
-
-        let result: Result<(u64, Option<u64>), String> = async {
-            let response = client
-                .get(download_url)
-                .send()
-                .await
-                .map_err(|err| format!("failed to request model download: {err}"))?;
-
-            if !response.status().is_success() {
-                return Err(format!(
-                    "model download request failed with status {}",
-                    response.status()
-                ));
-            }
-
-            let total_bytes = response.content_length();
-            self.set_progress(job_id, 0, total_bytes).await?;
-
-            let mut stream = response.bytes_stream();
-            let mut file = tokio::fs::File::create(&temp_path)
-                .await
-                .map_err(|err| format!("failed to create temporary model file: {err}"))?;
-
-            let mut downloaded: u64 = 0;
-
-            while let Some(item) = stream.next().await {
-                let chunk = item.map_err(|err| format!("download stream failed: {err}"))?;
-                file.write_all(&chunk)
-                    .await
-                    .map_err(|err| format!("failed to write model file: {err}"))?;
-                downloaded += chunk.len() as u64;
-                self.set_progress(job_id, downloaded, total_bytes).await?;
-            }
-
-            file.flush()
-                .await
-                .map_err(|err| format!("failed to flush model file: {err}"))?;
-            file.sync_all()
-                .await
-                .map_err(|err| format!("failed to sync model file: {err}"))?;
-
-            if destination.exists() {
-                tokio::fs::remove_file(&destination)
-                    .await
-                    .map_err(|err| format!("failed to replace existing model file: {err}"))?;
-            }
-
-            tokio::fs::rename(&temp_path, &destination)
-                .await
-                .map_err(|err| format!("failed to finalize model file: {err}"))?;
-
-            Ok((downloaded, total_bytes))
-        }
-        .await;
-
-        if let Err(err) = result {
-            let _ = tokio::fs::remove_file(&temp_path).await;
-            return Err(err);
+        if sources.is_empty() {
+            return Err("no download sources configured".to_string());
         }
 
-        let (downloaded, total_bytes) = result?;
-        self.mark_completed(job_id, model, downloaded, total_bytes)
+        let mut last_error = String::new();
+
+        for source in &sources {
+            let attempt = self
+                .try_download(job_id, source, expected_bytes, &temp_path, &destination, &client)
+                .await;
+
+            match attempt {
+                Ok((downloaded, total_bytes)) => {
+                    return self
+                        .mark_completed(job_id, model, downloaded, total_bytes)
+                        .await;
+                }
+                Err(DownloadAttemptError::Remote(message)) => {
+                    let _ = tokio::fs::remove_file(&temp_path).await;
+                    last_error = format!("{source}: {message}");
+                }
+                Err(DownloadAttemptError::Local(message)) => {
+                    let _ = tokio::fs::remove_file(&temp_path).await;
+                    return Err(format!("{source}: {message}"));
+                }
+            }
+        }
+
+        Err(format!(
+            "all download sources failed; last error: {last_error}"
+        ))
+    }
+
+    async fn try_download(
+        &self,
+        job_id: Uuid,
+        source: &str,
+        expected_bytes: Option<u64>,
+        temp_path: &Path,
+        destination: &Path,
+        client: &reqwest::Client,
+    ) -> Result<(u64, Option<u64>), DownloadAttemptError> {
+        let _ = tokio::fs::remove_file(temp_path).await;
+
+        let response = client
+            .get(source)
+            .send()
             .await
+            .map_err(|err| DownloadAttemptError::Remote(format!("request failed: {err}")))?;
+
+        if !response.status().is_success() {
+            return Err(DownloadAttemptError::Remote(format!(
+                "request failed with status {}",
+                response.status()
+            )));
+        }
+
+        let total_bytes = response.content_length();
+        self.set_progress(job_id, 0, total_bytes)
+            .await
+            .map_err(DownloadAttemptError::Local)?;
+
+        let mut stream = response.bytes_stream();
+        let mut file = tokio::fs::File::create(temp_path)
+            .await
+            .map_err(|err| DownloadAttemptError::Local(format!("create temp file: {err}")))?;
+
+        let mut downloaded: u64 = 0;
+
+        while let Some(item) = stream.next().await {
+            let chunk =
+                item.map_err(|err| DownloadAttemptError::Remote(format!("stream failed: {err}")))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(|err| DownloadAttemptError::Local(format!("write failed: {err}")))?;
+            downloaded += chunk.len() as u64;
+            self.set_progress(job_id, downloaded, total_bytes)
+                .await
+                .map_err(DownloadAttemptError::Local)?;
+        }
+
+        file.flush()
+            .await
+            .map_err(|err| DownloadAttemptError::Local(format!("flush failed: {err}")))?;
+        file.sync_all()
+            .await
+            .map_err(|err| DownloadAttemptError::Local(format!("sync failed: {err}")))?;
+        drop(file);
+
+        if let Some(expected) = expected_bytes {
+            if downloaded != expected {
+                return Err(DownloadAttemptError::Remote(format!(
+                    "downloaded {downloaded} bytes but expected {expected}"
+                )));
+            }
+        }
+
+        if destination.exists() {
+            tokio::fs::remove_file(destination)
+                .await
+                .map_err(|err| DownloadAttemptError::Local(format!("replace failed: {err}")))?;
+        }
+
+        tokio::fs::rename(temp_path, destination)
+            .await
+            .map_err(|err| DownloadAttemptError::Local(format!("finalize failed: {err}")))?;
+
+        Ok((downloaded, total_bytes))
     }
 
     async fn mark_running(&self, job_id: Uuid) -> Result<(), String> {
@@ -314,7 +382,7 @@ impl DownloadStore {
     }
 }
 
-async fn existing_model_file_size(path: &PathBuf) -> Option<u64> {
+async fn existing_model_file_size(path: &Path) -> Option<u64> {
     match tokio::fs::metadata(path).await {
         Ok(metadata) if metadata.is_file() && metadata.len() > 0 => Some(metadata.len()),
         _ => None,
