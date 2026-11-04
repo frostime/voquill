@@ -161,6 +161,8 @@ export const submitOnboarding = async () => {
         transcriptionPreference.mode === "local"
           ? transcriptionPreference.transcriptionModelSize
           : null,
+      modelsDir: null,
+      modelDownloadSource: "mirror",
       postProcessingMode: postProcessingPreference.mode,
       postProcessingApiKeyId:
         postProcessingPreference.mode === "api"

@@ -1,4 +1,3 @@
-import type { AppState } from "../state/app.state";
 import { CPU_DEVICE_VALUE } from "../types/ai.types";
 import {
   createEmptyLocalTranscriptionModelStatusMap,
