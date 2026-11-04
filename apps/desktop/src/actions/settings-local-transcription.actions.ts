@@ -11,7 +11,6 @@ import {
   type LocalSidecarDevice,
 } from "../sidecars";
 import {
-  isGpuPreferredTranscriptionDevice,
   LOCAL_WHISPER_MODELS,
   type LocalWhisperModel,
   normalizeTranscriptionDevice,
@@ -19,9 +18,6 @@ import {
 import { getEffectiveTranscriptionMode } from "../utils/user.utils";
 import { showErrorSnackbar } from "./app.actions";
 import { setPreferredTranscriptionDevice } from "./user.actions";
-
-const getPreferGpu = (state: AppState): boolean =>
-  isGpuPreferredTranscriptionDevice(state.settings.aiTranscription.device);
 
 const resolvePreferredDevice = (
   currentDevice: string,
@@ -99,7 +95,6 @@ export const refreshLocalTranscriptionModelStatuses = async ({
     return null;
   }
 
-  const preferGpu = getPreferGpu(state);
   const sidecarManager = getLocalTranscriptionSidecarManager();
 
   produceAppState((draft) => {
@@ -108,7 +103,6 @@ export const refreshLocalTranscriptionModelStatuses = async ({
 
   try {
     const statuses = await sidecarManager.listModelStatuses({
-      preferGpu,
       validate: true,
       models: LOCAL_WHISPER_MODELS,
     });
@@ -153,12 +147,10 @@ export const downloadLocalTranscriptionModel = async (
   }
 
   const sidecarManager = getLocalTranscriptionSidecarManager();
-  const preferGpu = getPreferGpu(state);
 
   try {
     await sidecarManager.downloadModel({
       model,
-      preferGpu,
       onProgress: (snapshot) => {
         produceAppState((draft) => {
           draft.settings.aiTranscription.localModelManagement.modelDownloads[
@@ -192,7 +184,6 @@ export const deleteLocalTranscriptionModel = async (
   }
 
   const sidecarManager = getLocalTranscriptionSidecarManager();
-  const preferGpu = getPreferGpu(state);
 
   produceAppState((draft) => {
     draft.settings.aiTranscription.localModelManagement.modelDeletes[model] =
@@ -200,7 +191,7 @@ export const deleteLocalTranscriptionModel = async (
   });
 
   try {
-    await sidecarManager.deleteModel({ model, preferGpu });
+    await sidecarManager.deleteModel({ model });
     return await refreshLocalTranscriptionModelStatuses({ showErrors: false });
   } catch (error) {
     showErrorSnackbar(`Unable to delete '${model}' model: ${error}`);

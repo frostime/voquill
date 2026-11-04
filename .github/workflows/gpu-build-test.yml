@@ -6,9 +6,6 @@ name: GPU sidecar build test
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/local-models-qwen
 
 jobs:
   build-gpu-sidecar:

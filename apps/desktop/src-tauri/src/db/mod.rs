@@ -131,6 +131,8 @@ pub const APP_TARGET_INSERTION_METHOD_MIGRATION_SQL: &str =
     include_str!("migrations/068_app_target_insertion_method.sql");
 pub const API_KEY_POST_PROCESSING_OPTIONS_MIGRATION_SQL: &str =
     include_str!("migrations/069_api_key_post_processing_options.sql");
+pub const LOCAL_MODEL_PREFERENCES_MIGRATION_SQL: &str =
+    include_str!("migrations/070_local_model_preferences.sql");
 
 pub fn migrations() -> Vec<tauri_plugin_sql::Migration> {
     vec![
@@ -546,6 +548,12 @@ pub fn migrations() -> Vec<tauri_plugin_sql::Migration> {
             version: 69,
             description: "add_api_key_post_processing_options",
             sql: API_KEY_POST_PROCESSING_OPTIONS_MIGRATION_SQL,
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 70,
+            description: "add_local_model_preferences",
+            sql: LOCAL_MODEL_PREFERENCES_MIGRATION_SQL,
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
     ]

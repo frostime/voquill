@@ -28,6 +28,8 @@ pub async fn upsert_user_preferences(
              transcription_api_key_id,
              transcription_device,
              transcription_model_size,
+             models_dir,
+             model_download_source,
              post_processing_mode,
              post_processing_api_key_id,
              post_processing_ollama_url,
@@ -63,12 +65,14 @@ pub async fn upsert_user_preferences(
              insertion_method,
              typing_speed_ms
          )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41)
          ON CONFLICT(user_id) DO UPDATE SET
             transcription_mode = excluded.transcription_mode,
             transcription_api_key_id = excluded.transcription_api_key_id,
             transcription_device = excluded.transcription_device,
             transcription_model_size = excluded.transcription_model_size,
+            models_dir = excluded.models_dir,
+            model_download_source = excluded.model_download_source,
             post_processing_mode = excluded.post_processing_mode,
             post_processing_api_key_id = excluded.post_processing_api_key_id,
             post_processing_ollama_url = excluded.post_processing_ollama_url,
@@ -109,6 +113,8 @@ pub async fn upsert_user_preferences(
     .bind(&preferences.transcription_api_key_id)
     .bind(&preferences.transcription_device)
     .bind(&preferences.transcription_model_size)
+    .bind(&preferences.models_dir)
+    .bind(&preferences.model_download_source)
     .bind(&preferences.post_processing_mode)
     .bind(&preferences.post_processing_api_key_id)
     .bind(&preferences.post_processing_ollama_url)
@@ -160,6 +166,8 @@ pub async fn fetch_user_preferences(
             transcription_api_key_id,
             transcription_device,
             transcription_model_size,
+            models_dir,
+            model_download_source,
             post_processing_mode,
             post_processing_api_key_id,
             post_processing_ollama_url,
@@ -215,6 +223,10 @@ pub async fn fetch_user_preferences(
             .unwrap_or(None),
         transcription_model_size: row
             .try_get::<Option<String>, _>("transcription_model_size")
+            .unwrap_or(None),
+        models_dir: row.try_get::<Option<String>, _>("models_dir").unwrap_or(None),
+        model_download_source: row
+            .try_get::<Option<String>, _>("model_download_source")
             .unwrap_or(None),
         post_processing_mode: row
             .try_get::<Option<String>, _>("post_processing_mode")

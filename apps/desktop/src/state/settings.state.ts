@@ -1,6 +1,7 @@
 import {
   ApiKey,
   ApiKeyProvider,
+  ModelDownloadSource,
   OpenRouterModel,
   OpenRouterProvider,
 } from "@voquill/types";
@@ -44,6 +45,8 @@ export type LocalTranscriptionModelManagementState = {
 export type SettingsTranscriptionState = {
   mode: TranscriptionMode | null;
   modelSize: string;
+  modelsDir: string | null;
+  modelDownloadSource: ModelDownloadSource;
   device: string;
   availableDevices: LocalSidecarDevice[];
   availableDevicesLoading: boolean;
@@ -134,6 +137,8 @@ export const INITIAL_SETTINGS_STATE: SettingsState = {
   aiTranscription: {
     mode: null,
     modelSize: DEFAULT_MODEL_SIZE,
+    modelsDir: null,
+    modelDownloadSource: "mirror",
     device: CPU_DEVICE_VALUE,
     availableDevices: [],
     availableDevicesLoading: false,

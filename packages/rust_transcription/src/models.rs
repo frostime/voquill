@@ -139,3 +139,35 @@ impl WhisperModel {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mirror_first_orders_sources() {
+        let sources = WhisperModel::Tiny.download_sources(true);
+        assert_eq!(sources.len(), 2);
+        assert!(sources[0].starts_with("https://hf-mirror.com/ggerganov/whisper.cpp/"));
+        assert!(sources[1].starts_with("https://huggingface.co/ggerganov/whisper.cpp/"));
+    }
+
+    #[test]
+    fn official_first_orders_sources() {
+        let sources = WhisperModel::Turbo.download_sources(false);
+        assert_eq!(sources.len(), 2);
+        assert!(sources[0].starts_with("https://huggingface.co/ggerganov/whisper.cpp/"));
+        assert!(sources[1].starts_with("https://hf-mirror.com/ggerganov/whisper.cpp/"));
+    }
+
+    #[test]
+    fn expected_bytes_match_published_artifacts() {
+        assert_eq!(WhisperModel::Tiny.expected_bytes(), 77_691_713);
+        assert_eq!(WhisperModel::Base.expected_bytes(), 147_951_465);
+        assert_eq!(WhisperModel::Small.expected_bytes(), 487_601_967);
+        assert_eq!(WhisperModel::Medium.expected_bytes(), 1_533_763_059);
+        assert_eq!(WhisperModel::Large.expected_bytes(), 3_095_033_483);
+        assert_eq!(WhisperModel::Turbo.expected_bytes(), 1_624_555_275);
+        assert_eq!(WhisperModel::Hindi2Hinglish.expected_bytes(), 624_065_675);
+    }
+}

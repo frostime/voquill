@@ -1,4 +1,5 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { getAppState } from "../store";
 import {
   LOCAL_WHISPER_MODELS,
   type LocalWhisperModel,
@@ -518,9 +519,15 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     model: LocalWhisperModel,
     onProgress?: (snapshot: LocalSidecarDownloadSnapshot) => void,
   ): Promise<void> {
+    const preferMirror =
+      getAppState().settings.aiTranscription.modelDownloadSource !== "official";
     const job = await this.requestJson<SidecarDownloadSnapshot>(
       `/v1/models/${model}/download`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferMirror }),
+      },
     );
 
     onProgress?.(job);
@@ -708,11 +715,20 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     return error instanceof SidecarRequestError && error.status === undefined;
   }
 
+  async resetModelsDir(): Promise<void> {
+    this.modelsDirPromise = null;
+    this.readyModels.clear();
+    await this.dispose();
+  }
+
   private async resolveModelsDir(): Promise<string> {
     if (!this.modelsDirPromise) {
-      this.modelsDirPromise = appDataDir().then(
-        async (baseDir) => await join(baseDir, "transcription-models"),
-      );
+      const configured = getAppState().settings.aiTranscription.modelsDir;
+      this.modelsDirPromise = configured
+        ? Promise.resolve(configured)
+        : appDataDir().then(
+            async (baseDir) => await join(baseDir, "transcription-models"),
+          );
     }
     return await this.modelsDirPromise;
   }

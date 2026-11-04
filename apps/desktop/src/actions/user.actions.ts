@@ -1,6 +1,7 @@
 import {
   type AgentMode,
   DictationPillVisibility,
+  ModelDownloadSource,
   Nullable,
   StylingMode,
   User,
@@ -9,6 +10,7 @@ import {
 import dayjs from "dayjs";
 import { getIntl } from "../i18n";
 import { getUserPreferencesRepo, getUserRepo } from "../repos";
+import { getLocalTranscriptionSidecarManager } from "../sidecars";
 import { CloudUserRepo } from "../repos/user.repo";
 import { getAppState, produceAppState } from "../store";
 import {
@@ -89,6 +91,8 @@ export const createDefaultPreferences = (): UserPreferences => ({
   transcriptionApiKeyId: null,
   transcriptionDevice: null,
   transcriptionModelSize: null,
+  modelsDir: null,
+  modelDownloadSource: "mirror",
   postProcessingMode: null,
   postProcessingApiKeyId: null,
   postProcessingOllamaUrl: null,
@@ -506,6 +510,34 @@ export const setPreferredTranscriptionDevice = async (
   await updateUserPreferences((preferences) => {
     preferences.transcriptionDevice = normalizedDevice;
     preferences.gpuEnumerationEnabled = gpuEnumerationEnabled;
+  });
+};
+
+export const setPreferredModelsDir = async (
+  modelsDir: string | null,
+): Promise<void> => {
+  const normalized = modelsDir?.trim() ? modelsDir.trim() : null;
+
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelsDir = normalized;
+  });
+
+  await getLocalTranscriptionSidecarManager().resetModelsDir();
+
+  await updateUserPreferences((preferences) => {
+    preferences.modelsDir = normalized;
+  });
+};
+
+export const setModelDownloadSource = async (
+  source: ModelDownloadSource,
+): Promise<void> => {
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelDownloadSource = source;
+  });
+
+  await updateUserPreferences((preferences) => {
+    preferences.modelDownloadSource = source;
   });
 };
 

@@ -8,9 +8,10 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
   refreshLocalTranscriptionDevices,
@@ -20,6 +21,8 @@ import {
 } from "../../actions/settings-local-transcription.actions";
 import { showErrorSnackbar } from "../../actions/app.actions";
 import {
+  setModelDownloadSource,
+  setPreferredModelsDir,
   setPreferredTranscriptionApiKeyId,
   setPreferredTranscriptionDevice,
   setPreferredTranscriptionMode,
@@ -193,6 +196,34 @@ export const AITranscriptionConfiguration = ({
     effectiveMode,
   ]);
 
+  const [modelsDirDraft, setModelsDirDraft] = useState(
+    transcription.modelsDir ?? "",
+  );
+  const modelDownloadBusy = Object.values(
+    localTranscriptionConfig.modelDownloads,
+  ).some((snapshot) => isLocalTranscriptionModelDownloadInProgress(snapshot));
+
+  useEffect(() => {
+    setModelsDirDraft(transcription.modelsDir ?? "");
+  }, [transcription.modelsDir]);
+
+  const handleModelsDirCommit = useCallback(() => {
+    const next = modelsDirDraft.trim() ? modelsDirDraft.trim() : null;
+    if (next === transcription.modelsDir) {
+      return;
+    }
+
+    if (modelDownloadBusy) {
+      showErrorSnackbar(
+        "Finish the model download before changing the model folder.",
+      );
+      setModelsDirDraft(transcription.modelsDir ?? "");
+      return;
+    }
+
+    void setPreferredModelsDir(next);
+  }, [modelDownloadBusy, modelsDirDraft, transcription.modelsDir]);
+
   const handleModeChange = useCallback((mode: TranscriptionMode) => {
     void setPreferredTranscriptionMode(mode);
   }, []);
@@ -285,6 +316,45 @@ export const AITranscriptionConfiguration = ({
 
       {effectiveMode === "local" && (
         <Stack spacing={3} sx={{ width: "100%" }}>
+          <Stack direction="row" spacing={2} sx={{ width: "100%" }}>
+            <TextField
+              fullWidth
+              size="small"
+              label={<FormattedMessage defaultMessage="Download source" />}
+              select
+              value={transcription.modelDownloadSource}
+              onChange={(event) =>
+                void setModelDownloadSource(
+                  event.target.value === "official" ? "official" : "mirror",
+                )
+              }
+            >
+              <MenuItem value="mirror">
+                <FormattedMessage defaultMessage="Mirror (hf-mirror, recommended in mainland China)" />
+              </MenuItem>
+              <MenuItem value="official">
+                <FormattedMessage defaultMessage="HuggingFace (official)" />
+              </MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              size="small"
+              label={<FormattedMessage defaultMessage="Model folder" />}
+              placeholder={intl.formatMessage({
+                defaultMessage: "Default app data folder",
+              })}
+              value={modelsDirDraft}
+              disabled={modelDownloadBusy}
+              onChange={(event) => setModelsDirDraft(event.target.value)}
+              onBlur={handleModelsDirCommit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleModelsDirCommit();
+                }
+              }}
+            />
+          </Stack>
+
           <FormControl
             fullWidth
             size="small"

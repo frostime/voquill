@@ -15,6 +15,10 @@ pub struct UserPreferences {
     #[serde(default)]
     pub transcription_model_size: Option<String>,
     #[serde(default)]
+    pub models_dir: Option<String>,
+    #[serde(default)]
+    pub model_download_source: Option<String>,
+    #[serde(default)]
     pub post_processing_mode: Option<String>,
     #[serde(default)]
     pub post_processing_api_key_id: Option<String>,
