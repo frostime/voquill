@@ -99,3 +99,32 @@ Qwen 自动选中 `Vulkan1`（1050 Ti），加载时把 805.3 MiB 权重拷进�
 - DLL 路线可用：C ABI 与头文件一致，设备枚举、模型装载、推理、取文本全部跑通，输出为正常中文（含标点）。
 - 稳态性能：GPU 约为 12–19× 实时，CPU 3.5–6.3×。在本机 GPU 上，8 s 口述约 0.66 s、30 s 约 1.85 s、2 分钟约 7 s。
 - 冷启动成本不能忽略：每次 sidecar 进程重启约 3.4 s 装载。当前 sidecar 空闲 60 s 即销毁，本地模型若沿用该行为，间隔稍长的每次口述都会先等 3.4 s——这需要作为独立行为要求处理（保活或预热），否则"松键很快出字"不成立。
+
+## 追加验证：显卡版 sidecar 已在 CI 构建成功（2026-11-05）
+
+本地没有安装 Vulkan SDK，改为在 GitHub Actions 上构建，避免占用本机磁盘。工作流 `.github/workflows/gpu-build-test.yml`（仅手动/分支触发）：
+
+1. `choco install vulkan-sdk` → 得到 `C:/VulkanSDK/1.4.363.0`，导出 `VULKAN_SDK`；
+2. `node scripts/prepare-sidecars.mjs`（`VOQUILL_REQUIRE_GPU_SIDECAR=true`，GPU 构建失败即报错）；
+3. 断言两个二进制哈希不同、GPU 版本引用了 `vulkan-1.dll`；
+4. 上传两个 sidecar 作为 artifact。
+
+结果：整个 job 约 9 分钟，成功。
+
+| 产物 | 大小 | sha256（节选） |
+|---|---|---|
+| cpu sidecar | 12,364,288 B | `A171F842…` |
+| gpu sidecar | 67,955,200 B | `DA8E55B5…`（引用 `vulkan-1.dll`） |
+
+把 CI 产物下载到本机直接运行（不安装任何 SDK）：
+
+```
+GET /health   → {"status":"ok","mode":"gpu"}
+GET /v1/devices → {"devices":[{"id":"gpu:0","name":"NVIDIA GeForce GTX 1050 Ti (Vulkan)"}]}
+```
+
+两点结论：
+
+- "显卡版是 CPU 拷贝"的问题可以在 CI 里彻底解决，本机不需要 Vulkan SDK。
+- 现有 whisper 的设备枚举只返回**独显**（`device_type == GPU`），核显本来就不会出现在 GPU 选项里，与"GPU 只算独显"的规则一致。
+- 注意：本地 `prepare-sidecars.mjs` 在没有 SDK 时仍会用 CPU 版本覆盖该产物；要用显卡版，需要走高版本地构建（装 SDK）或直接用 CI 打出的安装包。
