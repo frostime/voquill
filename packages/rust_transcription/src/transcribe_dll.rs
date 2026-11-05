@@ -7,6 +7,9 @@ use crate::compute::ComputeMode;
 
 type Status = i32;
 
+const DEVICE_TYPE_UNKNOWN: i32 = -1;
+const DEVICE_TYPE_GPU: i32 = 1;
+
 #[repr(C)]
 struct LoadParams {
     struct_size: u64,
@@ -247,6 +250,20 @@ impl TranscribeDll {
         Ok(dll)
     }
 
+    pub fn discrete_gpu_device(&self) -> Option<*mut c_void> {
+        let count = unsafe { (self.device_count)() };
+        for index in 0..count.max(0) {
+            let device = unsafe { (self.device_get)(index) };
+            if device.is_null() {
+                continue;
+            }
+            if self.device_type(device) == DEVICE_TYPE_GPU {
+                return Some(device);
+            }
+        }
+        None
+    }
+
     pub fn cpu_device(&self) -> Option<*mut c_void> {
         let count = unsafe { (self.device_count)() };
         for index in 0..count.max(0) {
@@ -259,6 +276,15 @@ impl TranscribeDll {
             }
         }
         None
+    }
+
+    fn device_type(&self, device: *mut c_void) -> i32 {
+        let mut info = DeviceInfo::default();
+        unsafe { (self.device_info_init)(&mut info) };
+        if unsafe { (self.device_get_info)(device, &mut info) } != 0 {
+            return DEVICE_TYPE_UNKNOWN;
+        }
+        info.device_type
     }
 
     fn device_kind(&self, device: *mut c_void) -> Option<String> {
@@ -302,11 +328,14 @@ impl TranscribeDll {
 
         let mut params = LoadParams::default();
         unsafe { (self.load_params_init)(&mut params) };
-        if mode == ComputeMode::Cpu {
-            params.device = self
+        params.device = match mode {
+            ComputeMode::Cpu => self
                 .cpu_device()
-                .ok_or_else(|| "no CPU compute device available".to_string())?;
-        }
+                .ok_or_else(|| "no CPU compute device available".to_string())?,
+            ComputeMode::Gpu => self
+                .discrete_gpu_device()
+                .ok_or_else(|| "no discrete GPU compute device available".to_string())?,
+        };
 
         let mut raw: *mut c_void = std::ptr::null_mut();
         let status = unsafe { (self.model_load_file)(path.as_ptr(), &params, &mut raw) };

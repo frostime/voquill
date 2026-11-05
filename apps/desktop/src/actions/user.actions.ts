@@ -503,6 +503,7 @@ export const setPreferredTranscriptionDevice = async (
 
   produceAppState((draft) => {
     draft.settings.aiTranscription.device = normalizedDevice;
+    draft.settings.aiTranscription.deviceChosen = true;
     draft.settings.aiTranscription.gpuEnumerationEnabled =
       gpuEnumerationEnabled;
   });

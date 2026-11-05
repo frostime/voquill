@@ -48,6 +48,7 @@ export type SettingsTranscriptionState = {
   modelsDir: string | null;
   modelDownloadSource: ModelDownloadSource;
   device: string;
+  deviceChosen: boolean;
   availableDevices: LocalSidecarDevice[];
   availableDevicesLoading: boolean;
   selectedApiKeyId: string | null;
@@ -140,6 +141,7 @@ export const INITIAL_SETTINGS_STATE: SettingsState = {
     modelsDir: null,
     modelDownloadSource: "mirror",
     device: CPU_DEVICE_VALUE,
+    deviceChosen: false,
     availableDevices: [],
     availableDevicesLoading: false,
     selectedApiKeyId: null,

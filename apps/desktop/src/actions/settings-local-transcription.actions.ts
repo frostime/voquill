@@ -21,14 +21,20 @@ import { setPreferredTranscriptionDevice } from "./user.actions";
 const resolvePreferredDevice = (
   currentDevice: string,
   devices: LocalSidecarDevice[],
+  deviceChosen: boolean,
 ): string => {
+  const firstCpuDevice = devices.find((device) => device.mode === "cpu")?.id;
+  const firstGpuDevice = devices.find((device) => device.mode === "gpu")?.id;
+
+  if (!deviceChosen && firstGpuDevice) {
+    return firstGpuDevice;
+  }
+
   const normalizedCurrent = normalizeTranscriptionDevice(currentDevice);
   if (devices.some((device) => device.id === normalizedCurrent)) {
     return normalizedCurrent;
   }
 
-  const firstCpuDevice = devices.find((device) => device.mode === "cpu")?.id;
-  const firstGpuDevice = devices.find((device) => device.mode === "gpu")?.id;
   if (normalizedCurrent.startsWith("gpu")) {
     return firstGpuDevice ?? firstCpuDevice ?? CPU_DEVICE_VALUE;
   }
@@ -56,6 +62,7 @@ export const refreshLocalTranscriptionDevices = async ({
     const resolvedDevice = resolvePreferredDevice(
       state.settings.aiTranscription.device,
       devices,
+      state.settings.aiTranscription.deviceChosen,
     );
 
     produceAppState((draft) => {
