@@ -1,6 +1,47 @@
 # 实施进度（本地模型：下载源 / 模型目录 / Qwen3-ASR / 默认独显）
 
-分支：`feat/local-models-qwen`（`main` 未改动）。契约见 `local-model-sources-and-qwen.SPEC.md`（目标与验收）与 `...SHAPE.md`（已锁定，不再修改）。
+产品分支：`feat/local-models-qwen`（`main` 未改动）。R2 审查修正的检查点为 `51907548`，开发基线为 `89f023d9`。R3 将这些修正与 10.1.0 版本准备纳入产品分支构建安装测试包。当前契约见 `local-model-sources-and-qwen.SPEC.md`；SHAPE 和 R1 handover 是首轮实现记录，其中运行中更换目录的方案已被本轮确认的强制重启方案取代。
+
+## Mainline
+
+- R1 基线：下载源、目录偏好、Qwen DLL 与独显默认已实现；下文 Phase 1–3 保留当时的验证证据，不代表修正后的验收。
+- R2 审查修正：已实现资源查找修正、仅主动下载、保存模型文件夹后自动重启、Qwen 同模型计算串行化。
+- R2 客观验证：TS 单测、类型/静态检查、Rust 单测及集成测试通过；真实安装包 DLL 与应用生成的资源路径已隔离验证，Qwen CPU 转写通过。
+- R3 · 10.1.0 安装测试包：用户已同意升版并用现有 GitHub Actions 构建完整显卡安装包。<< CURRENT。先生成产物并核对版本与运行时，再进入安装验收。
+- R3 · 安装验收与发布：待新包验证 Whisper/Qwen 独显、真实设置页确认/取消、保存后自动重启、新目录读取与既有历史/偏好保留。未通过前不合入 main、不创建正式 Release；覆盖现用安装前先向用户说明。
+
+## Current Phase
+
+代码和契约已同步。目录保存操作移到 `apps/desktop/src/actions/settings-local-transcription.actions.ts`，沿用偏好持久化与 Tauri 重启接口。Zustand 的 `modelsDirChangeStatus` 只在本次运行中保存：写库期间为 `saving`，写库成功后为 `restart-required`。全局不可关闭对话框、录音入口和本地模型请求共同禁止继续工作；写库失败解除限制，重启失败则保留限制并显示错误。原先运行中重置两侧目录的接口已删除。
+
+下载状态从操作开始即计入 `downloadingModels`，不等待首个进度响应，避免尚未收到响应时允许重启。进度快照仍只负责显示进度。没有引入下载队列、额外重试或文件变化监控。
+
+Now: 已将 Cargo.toml 升为 10.1.0，并通过 `cargo update --offline --workspace` 仅同步应用自身的 Cargo.lock 版本；准备推送产品分支触发现有完整安装包工作流。CHANGELOG 已包含本版内容，正式发布前仍保留在 `[Unreleased]`；最终签收时再按实际发布日期归档。
+
+### R3 构建约束
+
+使用 `.github/workflows/build-installer-test.yml`，由 GitHub 的 Windows runner 安装 Vulkan SDK，且 `VOQUILL_REQUIRE_GPU_SIDECAR=true`，禁止用 CPU 程序冒充显卡程序。本机不安装 SDK，也不依赖主工作区损坏的 node_modules。必须构建包含 R2 修正与 10.1.0 版本的最新提交；已有 10.0.4 安装包只用于历史验证，不能发布。
+
+### R2 验证证据
+
+- Rust：`cargo test --offline --manifest-path packages/rust_transcription/Cargo.toml --lib`，10 passed；`--test sidecar_integration`，6 passed、1 ignored。日志 `tmp/R2-cargo-test.log`、`tmp/R2-cargo-integration.log`。
+- Qwen 并发回归测试使用假的 C 计算入口记录同时运行数，但执行真实 `TranscribeDll::run`。在临时模块副本中去掉生产互斥后，测试观察到并发数 2 并失败；保留互斥时为 1 并通过。日志 `tmp/R2-qwen-compute-probe-{pass,mutant}.log`，未修改生产源文件进行反向验证。
+- TS：隔离 worktree `.worktrees/261105_local-models-review-checks` 的 desktop 单测 23 files / 332 passed；desktop 自己锁定的 TypeScript 5.8.3 `--noEmit` 通过；oxlint 0 warnings / 0 errors。日志在该 worktree 的 `tmp/R2-{vitest,typescript,oxlint}.log`。
+- TS 反向验证：仅在隔离 worktree 恢复 `89f023d9` 的 `local-transcription.sidecar.ts`，新测试 6 failed / 1 passed；恢复修正后 7 passed。日志 `tmp/R2-vitest-{r1-red,restored-green}.log`。主工作区未回退。
+- 安装资源：从已有 `tmp/installer/nsis/Voquill_10.0.4_x64-setup.exe` 只提取 `resources/transcribe/*`。运行真实 TS `buildSpawnEnv`（用隔离目录替代 Tauri 的资源根目录）能找到提取出的 `transcribe.dll`。用该环境启动更新后的 CPU 后台程序，仓库公开音频 `packages/rust_transcription/assets/test.wav` 转写为 `Test.`，两个同时 finalize 的会话文本一致。结果 `tmp/R2-bundled-qwen-e2e-result.json`；这不是安装版 UI 重启或 GPU 性能验收。
+- Tauri 源码核对：`tauri-plugin-process` 的 restart 调用 `request_restart`，会发送 Exit 事件；已注册的 `tauri-plugin-shell` 在 Exit 时终止它持有的子进程。未在现用应用上调用重启。
+- 独立静态复核未发现本轮锁定范围内的可证实问题。
+
+## Issues
+
+- I1 · Qwen DLL 查找漏掉 `resources/`：done。应用查找路径已与实际安装包内容核对，隔离运行成功。
+- I2 · 同模型计算重叠违反第三方库契约：done。`Model` 拥有计算互斥，测试已证明去掉保护会检出并发数 2。
+- I3 · 运行中更换目录要求过重：implemented，真实安装交互待验。用户选择保存后自动重启；保存/忙碌拒绝/失败状态及录音门控的单测通过。
+- I4 · 录音触发自动下载造成双下载入口：done。两处隐式下载已删除，新测试覆盖缺失、加载失败、已准备模型后来被删除，以及设置主动下载仍可用。
+- I5 · 路径输入不确定：done。采用 Tauri 的完整路径判断，空值使用默认，不猜位置；拒绝与保存失败均不触发重启。
+- I6 · 删除后旧模型缓存：deferred。用户接受删除、重下后重启，本轮不修、不强制删除后重启。
+
+## R1 实现与历史证据
 
 ## Phase 1：下载源与模型目录 —— 已实现，待界面实测
 
@@ -63,5 +104,5 @@
 
 ## 环境备注
 
-- 本机 `node_modules` 的工作区软链指向 `/h/...`（MSYS 路径），Windows 上的 `tsc`/`node` 无法解析，`pnpm install` 也因文件占用报 UNKNOWN。因此 TS 校验走 CI；需要本地构建时先清理 `node_modules` 再 `pnpm install`。
+- 主工作区的 `node_modules` 仍不可用，本轮没有删除或重装。R2 最小探针发现 H: 上新建普通目录 junction 也不能遍历，所以问题不只是不正确的 MSYS 链接文本。隔离 worktree 用锁定依赖的 `--node-linker=hoisted --package-import-method=copy --ignore-scripts` 安装；剩余 workspace junction 由明确的源码/编译输出副本替代，过程脚本为 `tmp/prepare-r2-typescript-checks.py`，旧隔离依赖保留在 `tmp/R2-isolated-dependencies-backup`。先用 packages/types 自己的 TypeScript 5.9.2 生成当前声明，再更新隔离副本，避免使用 R1 前的过期 dist。之后本地 TS 验证通过。不要据旧 handover 直接删除主依赖目录。
 - 本机未安装 Vulkan SDK；显卡版 sidecar 通过 CI 构建后下载（`gpu-build-test` 工作流）。

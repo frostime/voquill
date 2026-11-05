@@ -96,14 +96,6 @@ class LocalTranscriptionSidecarFacade {
     return result;
   }
 
-  async resetModelsDir(): Promise<void> {
-    this.gpuUnavailable = false;
-    await Promise.all([
-      this.cpuSidecar.resetModelsDir(),
-      this.gpuSidecar.resetModelsDir(),
-    ]);
-  }
-
   async transcribe(
     input: LocalSidecarTranscribeInput,
   ): Promise<LocalSidecarTranscribeOutput> {

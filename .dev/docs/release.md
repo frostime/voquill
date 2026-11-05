@@ -3,7 +3,7 @@ title: 版本、打包与发布
 description: 本 fork 的版本单一来源、本地打包步骤、安装/升级方式，以及发布到 GitHub Release 的流程。
 scope:
   - /**
-updated: 2026-09-18
+updated: 2026-11-05
 ---
 
 # 版本、打包与发布
@@ -23,7 +23,7 @@ updated: 2026-09-18
 | 前端 `getVersion()`（Dashboard、诊断对话框） | Cargo.toml（`tauri-codegen` 的 `context.rs` 回落到 `CARGO_PKG_VERSION`） |
 | Rust 启动日志、诊断文件、exe 的版本资源 | Cargo.toml |
 
-发布时只做一件事：改 `Cargo.toml` 里那一行（当前 `10.0.1`）。`Cargo.lock` 会在下次构建时自动跟上。
+升版只改 `Cargo.toml` 的 `version`。使用 `cargo update --offline --workspace --manifest-path apps/desktop/src-tauri/Cargo.toml` 同步派生的 `Cargo.lock`，并检查没有顺带更新第三方依赖。下文命令中的版本号是示例，实际值以 Cargo.toml 为准。
 
 不要把 `version` 写回 `tauri.conf.json`——那会重新制造第二个来源，并与 Rust 侧的值分叉。
 `apps/desktop/package.json` 的 `version` 字段已删除，不要加回来：它不参与打包。
@@ -52,6 +52,12 @@ apps/desktop/src-tauri/target/release/bundle/
 **不需要任何签名密钥。** updater 已于 2026-09-18 移除；在此之前，`createUpdaterArtifacts`
 搭配占位公钥会让 bundle 阶段以 `A public key has been found, but no private key` 失败。
 
+## 显卡安装包（GitHub Actions）
+
+本地没有 Vulkan SDK 时，`prepare-sidecars.mjs` 默认可能把 CPU 程序复制成显卡版本；这种包不能用于承诺 Whisper/Qwen 独显支持的发行版。用户运行应用只需显卡驱动，不需要安装开发用 SDK。
+
+当前完整显卡安装包流程是 `.github/workflows/build-installer-test.yml`：Windows runner 安装 SDK，设置 `VOQUILL_REQUIRE_GPU_SIDECAR=true`，构建安装包并检查 CPU/GPU 二进制不同及 Qwen 运行时存在。它仍是测试工作流，不会自动创建 Release。下载 artifact 后核对其源提交与版本，完成安装验收，再将经验证的同一份安装包上传发布；不要直接沿用旧测试包。
+
 ## 安装与升级
 
 - 用 NSIS 的 `-setup.exe` 覆盖安装即可；identifier 不变（`com.voquill.desktop`），属同一应用的升级，不会变成并行安装。
@@ -69,7 +75,7 @@ apps/desktop/src-tauri/target/release/bundle/
 1. 递增 `apps/desktop/src-tauri/Cargo.toml` 的 `version` 并提交；
 2. 把 `CHANGELOG.md` 的 `[Unreleased]` 改成 `[<version>] - <YYYY-MM-DD>`，新开一个空的 `[Unreleased]`，
    并更新底部的 compare 链接；
-3. 按上面的步骤本地打包；
+3. 按上面的步骤构建安装包；缺少本地显卡构建工具时使用 GitHub Actions 显卡安装包流程。先完成安装验收，再发布同一份产物；
 4. 创建 release 并上传两个安装包（release notes 用 CHANGELOG 对应段落即可）：
 
 ```bash

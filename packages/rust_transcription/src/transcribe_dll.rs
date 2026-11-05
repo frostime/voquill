@@ -1,5 +1,6 @@
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use libloading::{Library, Symbol};
 
@@ -144,6 +145,7 @@ pub struct TranscribeDll {
 pub struct Model {
     raw: *mut c_void,
     free: unsafe extern "C" fn(*mut c_void),
+    compute_lock: Mutex<()>,
 }
 
 pub struct Session {
@@ -162,8 +164,8 @@ pub struct RunOutput {
     pub device: String,
 }
 
-// The library documents that a loaded model may back several single-threaded
-// sessions; the wrappers only move ownership of a pointer.
+// transcribe.cpp permits concurrent model queries and session creation, but
+// requires serialized compute across all sessions of one model (transcribe.h).
 unsafe impl Send for Model {}
 unsafe impl Sync for Model {}
 
@@ -171,7 +173,10 @@ impl TranscribeDll {
     pub fn load(native_dir: &Path) -> Result<Self, String> {
         let library_path = native_dir.join("transcribe.dll");
         if !library_path.is_file() {
-            return Err(format!("transcribe.dll not found in {}", native_dir.display()));
+            return Err(format!(
+                "transcribe.dll not found in {}",
+                native_dir.display()
+            ));
         }
 
         add_dll_search_path(native_dir);
@@ -190,9 +195,15 @@ impl TranscribeDll {
         }
 
         let dll = Self {
-            init_backends: symbol!("transcribe_init_backends\0", unsafe extern "C" fn(*const c_char) -> Status),
+            init_backends: symbol!(
+                "transcribe_init_backends\0",
+                unsafe extern "C" fn(*const c_char) -> Status
+            ),
             device_count: symbol!("transcribe_device_count\0", unsafe extern "C" fn() -> c_int),
-            device_get: symbol!("transcribe_device_get\0", unsafe extern "C" fn(c_int) -> *mut c_void),
+            device_get: symbol!(
+                "transcribe_device_get\0",
+                unsafe extern "C" fn(c_int) -> *mut c_void
+            ),
             device_info_init: symbol!(
                 "transcribe_device_info_init\0",
                 unsafe extern "C" fn(*mut DeviceInfo)
@@ -226,7 +237,10 @@ impl TranscribeDll {
                 "transcribe_session_init\0",
                 unsafe extern "C" fn(*mut c_void, *const SessionParams, *mut *mut c_void) -> Status
             ),
-            session_free: symbol!("transcribe_session_free\0", unsafe extern "C" fn(*mut c_void)),
+            session_free: symbol!(
+                "transcribe_session_free\0",
+                unsafe extern "C" fn(*mut c_void)
+            ),
             run: symbol!(
                 "transcribe_run\0",
                 unsafe extern "C" fn(*mut c_void, *const f32, c_int, *const RunParams) -> Status
@@ -346,6 +360,7 @@ impl TranscribeDll {
         Ok(Model {
             raw,
             free: self.model_free,
+            compute_lock: Mutex::new(()),
         })
     }
 
@@ -355,12 +370,15 @@ impl TranscribeDll {
     }
 
     pub fn run(&self, model: &Model, request: RunRequest<'_>) -> Result<RunOutput, String> {
+        let _compute = model
+            .compute_lock
+            .lock()
+            .map_err(|_| "Qwen model compute lock poisoned".to_string())?;
         let mut session_params = SessionParams::default();
         unsafe { (self.session_params_init)(&mut session_params) };
 
         let mut session_raw: *mut c_void = std::ptr::null_mut();
-        let status =
-            unsafe { (self.session_init)(model.raw, &session_params, &mut session_raw) };
+        let status = unsafe { (self.session_init)(model.raw, &session_params, &mut session_raw) };
         if status != 0 || session_raw.is_null() {
             return Err(format!("failed to create session (status {status})"));
         }
@@ -433,7 +451,9 @@ unsafe fn c_string(ptr: *const c_char) -> String {
     if ptr.is_null() {
         return String::new();
     }
-    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Makes the runtime's sibling DLLs (`ggml*.dll`) resolvable before loading.
@@ -456,4 +476,116 @@ pub fn native_dir_from_env() -> Option<PathBuf> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Barrier;
+    use std::time::Duration;
+
+    #[derive(Default)]
+    struct ComputeProbe {
+        active: AtomicUsize,
+        max_active: AtomicUsize,
+    }
+
+    unsafe extern "C" fn init<T>(_: *mut T) {}
+    unsafe extern "C" fn free(_: *mut c_void) {}
+    unsafe extern "C" fn init_backends(_: *const c_char) -> Status {
+        0
+    }
+    unsafe extern "C" fn device_count() -> c_int {
+        0
+    }
+    unsafe extern "C" fn device_get(_: c_int) -> *mut c_void {
+        std::ptr::null_mut()
+    }
+    unsafe extern "C" fn device_info(_: *mut c_void, _: *mut DeviceInfo) -> Status {
+        0
+    }
+    unsafe extern "C" fn model_load(
+        _: *const c_char,
+        _: *const LoadParams,
+        _: *mut *mut c_void,
+    ) -> Status {
+        0
+    }
+    unsafe extern "C" fn model_device(_: *const c_void) -> *mut c_void {
+        std::ptr::null_mut()
+    }
+    unsafe extern "C" fn session_init(
+        model: *mut c_void,
+        _: *const SessionParams,
+        session: *mut *mut c_void,
+    ) -> Status {
+        *session = model;
+        0
+    }
+    unsafe extern "C" fn run(
+        session: *mut c_void,
+        _: *const f32,
+        _: c_int,
+        _: *const RunParams,
+    ) -> Status {
+        let probe = &*(session as *const ComputeProbe);
+        let active = probe.active.fetch_add(1, Ordering::SeqCst) + 1;
+        probe.max_active.fetch_max(active, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(30));
+        probe.active.fetch_sub(1, Ordering::SeqCst);
+        0
+    }
+    unsafe extern "C" fn full_text(_: *const c_void) -> *const c_char {
+        b"transcribed\0".as_ptr().cast()
+    }
+
+    #[test]
+    fn concurrent_sessions_on_one_model_compute_serially() {
+        let dll = TranscribeDll {
+            init_backends,
+            device_count,
+            device_get,
+            device_info_init: init::<DeviceInfo>,
+            device_get_info: device_info,
+            load_params_init: init::<LoadParams>,
+            session_params_init: init::<SessionParams>,
+            run_params_init: init::<RunParams>,
+            model_load_file: model_load,
+            model_free: free,
+            model_device,
+            session_init,
+            session_free: free,
+            run,
+            full_text,
+        };
+        let probe = ComputeProbe::default();
+        let model = Model {
+            raw: (&probe as *const ComputeProbe).cast_mut().cast(),
+            free,
+            compute_lock: Mutex::new(()),
+        };
+        let start = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let transcribe = || {
+                start.wait();
+                let output = dll
+                    .run(
+                        &model,
+                        RunRequest {
+                            samples: &[0.1],
+                            language: None,
+                            prompt: None,
+                        },
+                    )
+                    .unwrap();
+                assert_eq!(output.text, "transcribed");
+            };
+            let first = scope.spawn(transcribe);
+            let second = scope.spawn(transcribe);
+            first.join().unwrap();
+            second.join().unwrap();
+        });
+        assert_eq!(probe.max_active.load(Ordering::SeqCst), 1);
+    }
 }

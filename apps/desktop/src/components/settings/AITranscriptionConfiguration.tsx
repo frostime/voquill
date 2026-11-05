@@ -18,20 +18,17 @@ import {
   deleteLocalTranscriptionModel,
   downloadLocalTranscriptionModel,
   refreshLocalTranscriptionModelStatuses,
+  setPreferredModelsDir,
 } from "../../actions/settings-local-transcription.actions";
 import { showErrorSnackbar } from "../../actions/app.actions";
 import {
   setModelDownloadSource,
-  setPreferredModelsDir,
   setPreferredTranscriptionApiKeyId,
   setPreferredTranscriptionDevice,
   setPreferredTranscriptionMode,
   setPreferredTranscriptionModelSize,
 } from "../../actions/user.actions";
-import {
-  isLocalTranscriptionModelDownloadInProgress,
-  isLocalTranscriptionModelSelectable,
-} from "../../state/settings.state";
+import { isLocalTranscriptionModelSelectable } from "../../state/settings.state";
 import { useAppStore } from "../../store";
 import { CPU_DEVICE_VALUE, type TranscriptionMode } from "../../types/ai.types";
 import { getAllowsChangeTranscription } from "../../utils/enterprise.utils";
@@ -40,9 +37,11 @@ import { formatSize } from "../../utils/format.utils";
 import { type LocalSidecarDownloadSnapshot } from "../../sidecars";
 import {
   type LocalModelId,
+  getIsModelFolderChangeBlocked,
   normalizeLocalModelId,
 } from "../../utils/local-transcription.utils";
 import { ManagedByOrgNotice } from "../common/ManagedByOrgNotice";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   SegmentedControl,
   SegmentedControlOption,
@@ -137,6 +136,7 @@ export const AITranscriptionConfiguration = ({
   const transcription = useAppStore((state) => state.settings.aiTranscription);
   const effectiveMode = useAppStore(getEffectiveTranscriptionMode);
   const allowChange = useAppStore(getAllowsChangeTranscription);
+  const modelFolderChangeBlocked = useAppStore(getIsModelFolderChangeBlocked);
   const localTranscriptionConfig = transcription.localModelManagement;
 
   const hasSelectedDevice = transcription.availableDevices.some(
@@ -146,11 +146,8 @@ export const AITranscriptionConfiguration = ({
     ? transcription.device
     : (transcription.availableDevices[0]?.id ?? CPU_DEVICE_VALUE);
   const modelValue = normalizeLocalModelId(transcription.modelSize);
-  const modelDownloadSnapshot =
-    localTranscriptionConfig.modelDownloads[modelValue];
-  const modelDownloading = isLocalTranscriptionModelDownloadInProgress(
-    modelDownloadSnapshot,
-  );
+  const modelDownloading =
+    localTranscriptionConfig.downloadingModels.includes(modelValue);
   const modelSelectable = isLocalTranscriptionModelSelectable(
     transcription,
     modelValue,
@@ -204,30 +201,21 @@ export const AITranscriptionConfiguration = ({
   const [modelsDirDraft, setModelsDirDraft] = useState(
     transcription.modelsDir ?? "",
   );
-  const modelDownloadBusy = Object.values(
-    localTranscriptionConfig.modelDownloads,
-  ).some((snapshot) => isLocalTranscriptionModelDownloadInProgress(snapshot));
+  const [modelsDirConfirmationOpen, setModelsDirConfirmationOpen] =
+    useState(false);
+  const modelsDirChanged =
+    (modelsDirDraft.trim() || null) !== transcription.modelsDir;
 
   useEffect(() => {
     setModelsDirDraft(transcription.modelsDir ?? "");
   }, [transcription.modelsDir]);
 
   const handleModelsDirCommit = useCallback(() => {
-    const next = modelsDirDraft.trim() ? modelsDirDraft.trim() : null;
-    if (next === transcription.modelsDir) {
-      return;
-    }
-
-    if (modelDownloadBusy) {
-      showErrorSnackbar(
-        "Finish the model download before changing the model folder.",
-      );
-      setModelsDirDraft(transcription.modelsDir ?? "");
-      return;
-    }
-
-    void setPreferredModelsDir(next);
-  }, [modelDownloadBusy, modelsDirDraft, transcription.modelsDir]);
+    setModelsDirConfirmationOpen(false);
+    void setPreferredModelsDir(modelsDirDraft.trim() || null).catch((error) => {
+      showErrorSnackbar(error instanceof Error ? error.message : String(error));
+    });
+  }, [modelsDirDraft]);
 
   const handleModeChange = useCallback((mode: TranscriptionMode) => {
     void setPreferredTranscriptionMode(mode);
@@ -256,17 +244,13 @@ export const AITranscriptionConfiguration = ({
 
   const handleDownloadModel = useCallback(
     (model: LocalModelId) => {
-      if (
-        isLocalTranscriptionModelDownloadInProgress(
-          localTranscriptionConfig.modelDownloads[model],
-        )
-      ) {
+      if (localTranscriptionConfig.downloadingModels.includes(model)) {
         return;
       }
 
       void downloadLocalTranscriptionModel(model);
     },
-    [localTranscriptionConfig.modelDownloads],
+    [localTranscriptionConfig.downloadingModels],
   );
 
   const handleDeleteModel = useCallback(
@@ -300,6 +284,17 @@ export const AITranscriptionConfiguration = ({
 
   return (
     <Stack spacing={3} alignItems="flex-start" sx={{ width: "100%" }}>
+      <ConfirmDialog
+        isOpen={modelsDirConfirmationOpen}
+        title={<FormattedMessage defaultMessage="Change model folder?" />}
+        content={
+          <FormattedMessage defaultMessage="Voquill will save the new folder and restart immediately. Existing model files will not be moved or deleted." />
+        }
+        confirmLabel={<FormattedMessage defaultMessage="Save and restart" />}
+        confirmButtonProps={{ disabled: modelFolderChangeBlocked }}
+        onConfirm={handleModelsDirCommit}
+        onCancel={() => setModelsDirConfirmationOpen(false)}
+      />
       <SegmentedControl<TranscriptionMode>
         value={effectiveMode}
         onChange={handleModeChange}
@@ -341,23 +336,35 @@ export const AITranscriptionConfiguration = ({
                 <FormattedMessage defaultMessage="HuggingFace (official)" />
               </MenuItem>
             </TextField>
-            <TextField
-              fullWidth
-              size="small"
-              label={<FormattedMessage defaultMessage="Model folder" />}
-              placeholder={intl.formatMessage({
-                defaultMessage: "Default app data folder",
-              })}
-              value={modelsDirDraft}
-              disabled={modelDownloadBusy}
-              onChange={(event) => setModelsDirDraft(event.target.value)}
-              onBlur={handleModelsDirCommit}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleModelsDirCommit();
+            <Stack spacing={1} sx={{ width: "100%" }}>
+              <TextField
+                fullWidth
+                size="small"
+                label={<FormattedMessage defaultMessage="Model folder" />}
+                placeholder={intl.formatMessage({
+                  defaultMessage: "Default app data folder",
+                })}
+                helperText={
+                  modelFolderChangeBlocked ? (
+                    <FormattedMessage defaultMessage="Finish the current recording, transcription, or model download/deletion before changing the folder." />
+                  ) : (
+                    <FormattedMessage defaultMessage="A full folder path is required. Changing it restarts Voquill." />
+                  )
                 }
-              }}
-            />
+                value={modelsDirDraft}
+                disabled={modelFolderChangeBlocked}
+                onChange={(event) => setModelsDirDraft(event.target.value)}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={!modelsDirChanged || modelFolderChangeBlocked}
+                onClick={() => setModelsDirConfirmationOpen(true)}
+                sx={{ alignSelf: "flex-end" }}
+              >
+                <FormattedMessage defaultMessage="Save and restart" />
+              </Button>
+            </Stack>
           </Stack>
 
           <FormControl
@@ -437,7 +444,7 @@ export const AITranscriptionConfiguration = ({
                 const downloadSnapshot =
                   localTranscriptionConfig.modelDownloads[value];
                 const downloading =
-                  isLocalTranscriptionModelDownloadInProgress(downloadSnapshot);
+                  localTranscriptionConfig.downloadingModels.includes(value);
                 const deleting = !!localTranscriptionConfig.modelDeletes[value];
                 const selectable = isLocalTranscriptionModelSelectable(
                   transcription,
@@ -598,6 +605,10 @@ export const AITranscriptionConfiguration = ({
               </Box>
             )}
           </FormControl>
+
+          <Typography variant="caption" color="text.secondary">
+            <FormattedMessage defaultMessage="After deleting and downloading a model again, restart Voquill before using it." />
+          </Typography>
 
           {localTranscriptionConfig.modelStatusesLoading && (
             <Stack direction="row" spacing={1} alignItems="center">

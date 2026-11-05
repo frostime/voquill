@@ -1,4 +1,18 @@
+import type { AppState } from "../state/app.state";
 import { CPU_DEVICE_VALUE } from "../types/ai.types";
+
+export const getIsModelFolderChangeBlocked = (state: AppState): boolean => {
+  const transcription = state.settings.aiTranscription;
+  const models = transcription.localModelManagement;
+  return (
+    transcription.modelsDirChangeStatus !== null ||
+    state.activeRecordingMode !== null ||
+    state.overlayPhase !== "idle" ||
+    state.transcriptions.retranscribingIds.length > 0 ||
+    models.downloadingModels.length > 0 ||
+    Object.values(models.modelDeletes).some(Boolean)
+  );
+};
 
 export type LocalModelId =
   | "tiny"

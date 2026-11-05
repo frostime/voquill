@@ -1,7 +1,9 @@
+import { isAbsolute } from "@tauri-apps/api/path";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { getIntl } from "../i18n";
 import { CPU_DEVICE_VALUE } from "../types/ai.types";
 import {
   createEmptyLocalTranscriptionModelStatusMap,
-  isLocalTranscriptionModelDownloadInProgress,
   type LocalTranscriptionModelStatusMap,
 } from "../state/settings.state";
 import { getAppState, produceAppState } from "../store";
@@ -10,13 +12,63 @@ import {
   type LocalSidecarDevice,
 } from "../sidecars";
 import {
+  getIsModelFolderChangeBlocked,
   LOCAL_MODELS,
   type LocalModelId,
   normalizeTranscriptionDevice,
 } from "../utils/local-transcription.utils";
 import { getEffectiveTranscriptionMode } from "../utils/user.utils";
 import { showErrorSnackbar } from "./app.actions";
-import { setPreferredTranscriptionDevice } from "./user.actions";
+import {
+  setPreferredTranscriptionDevice,
+  updateUserPreferences,
+} from "./user.actions";
+
+export const setPreferredModelsDir = async (
+  modelsDir: string | null,
+): Promise<void> => {
+  const normalized = modelsDir?.trim() ? modelsDir.trim() : null;
+  const state = getAppState();
+  if (normalized === state.settings.aiTranscription.modelsDir) {
+    return;
+  }
+  if (getIsModelFolderChangeBlocked(state)) {
+    throw new Error(
+      getIntl().formatMessage({
+        defaultMessage:
+          "Finish recording, transcription, and model downloads or deletions before changing the model folder.",
+      }),
+    );
+  }
+
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelsDirChangeStatus = "saving";
+  });
+
+  try {
+    if (normalized !== null && !(await isAbsolute(normalized))) {
+      throw new Error(
+        getIntl().formatMessage({
+          defaultMessage:
+            "Enter a full model folder path, such as D:/Models, or leave it empty to use the default folder.",
+        }),
+      );
+    }
+    await updateUserPreferences((preferences) => {
+      preferences.modelsDir = normalized;
+    });
+  } catch (error) {
+    produceAppState((draft) => {
+      draft.settings.aiTranscription.modelsDirChangeStatus = null;
+    });
+    throw error;
+  }
+
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelsDirChangeStatus = "restart-required";
+  });
+  await relaunch();
+};
 
 const resolvePreferredDevice = (
   currentDevice: string,
@@ -146,12 +198,19 @@ export const downloadLocalTranscriptionModel = async (
     return;
   }
 
-  const existingDownload =
-    state.settings.aiTranscription.localModelManagement.modelDownloads[model];
-  if (isLocalTranscriptionModelDownloadInProgress(existingDownload)) {
+  if (
+    state.settings.aiTranscription.localModelManagement.downloadingModels.includes(
+      model,
+    )
+  ) {
     return;
   }
 
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.localModelManagement.downloadingModels.push(
+      model,
+    );
+  });
   const sidecarManager = getLocalTranscriptionSidecarManager();
 
   try {
@@ -170,9 +229,11 @@ export const downloadLocalTranscriptionModel = async (
     showErrorSnackbar(`Unable to download '${model}' model: ${error}`);
   } finally {
     produceAppState((draft) => {
-      delete draft.settings.aiTranscription.localModelManagement.modelDownloads[
-        model
-      ];
+      const management = draft.settings.aiTranscription.localModelManagement;
+      management.downloadingModels = management.downloadingModels.filter(
+        (downloadingModel) => downloadingModel !== model,
+      );
+      delete management.modelDownloads[model];
     });
   }
 };

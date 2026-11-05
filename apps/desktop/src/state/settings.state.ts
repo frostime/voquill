@@ -36,9 +36,8 @@ export type LocalTranscriptionModelManagementState = {
   modelStatuses: LocalTranscriptionModelStatusMap;
   modelStatusesLoading: boolean;
   modelStatusesLoaded: boolean;
-  modelDownloads: Partial<
-    Record<LocalModelId, LocalSidecarDownloadSnapshot>
-  >;
+  downloadingModels: LocalModelId[];
+  modelDownloads: Partial<Record<LocalModelId, LocalSidecarDownloadSnapshot>>;
   modelDeletes: Partial<Record<LocalModelId, boolean>>;
 };
 
@@ -46,6 +45,7 @@ export type SettingsTranscriptionState = {
   mode: TranscriptionMode | null;
   modelSize: string;
   modelsDir: string | null;
+  modelsDirChangeStatus: "saving" | "restart-required" | null;
   modelDownloadSource: ModelDownloadSource;
   device: string;
   deviceChosen: boolean;
@@ -105,12 +105,6 @@ export const createEmptyLocalTranscriptionModelStatusMap =
       LOCAL_MODELS.map((model) => [model, null]),
     ) as LocalTranscriptionModelStatusMap;
 
-export const isLocalTranscriptionModelDownloadInProgress = (
-  snapshot: LocalSidecarDownloadSnapshot | undefined,
-): boolean => {
-  return snapshot?.status === "pending" || snapshot?.status === "running";
-};
-
 export const isLocalTranscriptionModelSelectable = (
   transcription: SettingsTranscriptionState,
   model: LocalModelId,
@@ -139,6 +133,7 @@ export const INITIAL_SETTINGS_STATE: SettingsState = {
     mode: null,
     modelSize: DEFAULT_MODEL_SIZE,
     modelsDir: null,
+    modelsDirChangeStatus: null,
     modelDownloadSource: "mirror",
     device: CPU_DEVICE_VALUE,
     deviceChosen: false,
@@ -150,6 +145,7 @@ export const INITIAL_SETTINGS_STATE: SettingsState = {
       modelStatuses: createEmptyLocalTranscriptionModelStatusMap(),
       modelStatusesLoading: false,
       modelStatusesLoaded: false,
+      downloadingModels: [],
       modelDownloads: {},
       modelDeletes: {},
     },

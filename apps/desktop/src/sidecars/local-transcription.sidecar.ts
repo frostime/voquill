@@ -1,5 +1,6 @@
 import { appDataDir, join, resolveResource } from "@tauri-apps/api/path";
 import { getAppState } from "../store";
+import { getIntl } from "../i18n";
 import {
   LOCAL_MODELS,
   type LocalModelId,
@@ -146,7 +147,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
 
   protected async buildSpawnEnv(): Promise<Record<string, string>> {
     const modelsDir = await this.resolveModelsDir();
-    const nativeDir = await resolveResource("transcribe");
+    const nativeDir = await resolveResource("resources/transcribe");
 
     return {
       RUST_TRANSCRIPTION_HOST: SIDECAR_HOST,
@@ -246,9 +247,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     return finalStatus;
   }
 
-  async deleteModel(
-    model: LocalModelId,
-  ): Promise<LocalSidecarModelStatus> {
+  async deleteModel(model: LocalModelId): Promise<LocalSidecarModelStatus> {
     const status = await this.requestJson<SidecarModelStatusResponse>(
       `/v1/models/${model}`,
       { method: "DELETE" },
@@ -261,17 +260,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   async transcribe(
     input: LocalSidecarTranscribeInput,
   ): Promise<LocalSidecarTranscribeOutput> {
-    try {
-      return await this.transcribeInternal(input);
-    } catch (error) {
-      if (!this.isModelMissingError(error)) {
-        throw error;
-      }
-
-      this.invalidateModelReadiness(input.model);
-      await this.downloadModelInternal(input.model);
-      return await this.transcribeInternal(input);
-    }
+    return await this.transcribeInternal(input);
   }
 
   async createStreamingSession(
@@ -491,21 +480,26 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     await pending;
   }
 
-  private async ensureModelReadyInternal(
-    model: LocalModelId,
-  ): Promise<void> {
-    const currentStatus = await this.getModelStatus(model, true);
-
-    if (!currentStatus.downloaded || !currentStatus.valid) {
-      await this.downloadModelInternal(model);
-    }
-
-    const finalStatus = await this.getModelStatus(model, true);
-
-    if (!finalStatus.downloaded || !finalStatus.valid) {
+  private async ensureModelReadyInternal(model: LocalModelId): Promise<void> {
+    const status = await this.getModelStatus(model, true);
+    if (!status.downloaded) {
       throw new Error(
-        finalStatus.validationError ||
-          `Model '${model}' failed validation (${this.mode.toUpperCase()})`,
+        getIntl().formatMessage(
+          {
+            defaultMessage:
+              "Download model {model} in Settings before transcribing.",
+          },
+          { model },
+        ),
+      );
+    }
+    if (!status.valid) {
+      throw new Error(
+        status.validationError ||
+          getIntl().formatMessage(
+            { defaultMessage: "Model {model} could not be loaded." },
+            { model },
+          ),
       );
     }
 
@@ -573,18 +567,6 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     );
   }
 
-  private isModelMissingError(error: unknown): boolean {
-    if (!(error instanceof SidecarRequestError)) {
-      return false;
-    }
-
-    if (error.status !== 404) {
-      return false;
-    }
-
-    return !error.code || error.code === "model_not_downloaded";
-  }
-
   private async requestJson<T>(
     path: string,
     init?: RequestInit,
@@ -593,6 +575,14 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       retries?: number;
     },
   ): Promise<T> {
+    if (getAppState().settings.aiTranscription.modelsDirChangeStatus !== null) {
+      throw new Error(
+        getIntl().formatMessage({
+          defaultMessage: "Restart Voquill to use the new model folder.",
+        }),
+      );
+    }
+
     const retries = options?.retries ?? SIDECAR_REQUEST_RETRIES;
     const timeoutMs = options?.timeoutMs ?? SIDECAR_REQUEST_TIMEOUT_MS;
     let lastError: unknown = null;
@@ -688,7 +678,13 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       };
 
       const code = payload.error?.code;
-      const message = payload.error?.message || fallbackMessage;
+      const message =
+        code === "model_not_downloaded"
+          ? getIntl().formatMessage({
+              defaultMessage:
+                "The local model is missing. Download it in Settings before transcribing.",
+            })
+          : payload.error?.message || fallbackMessage;
       return new SidecarRequestError(message, status, code);
     } catch {
       const text = await response.text().catch(() => "");
@@ -714,12 +710,6 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
 
   private isTransportError(error: unknown): boolean {
     return error instanceof SidecarRequestError && error.status === undefined;
-  }
-
-  async resetModelsDir(): Promise<void> {
-    this.modelsDirPromise = null;
-    this.readyModels.clear();
-    await this.dispose();
   }
 
   private async resolveModelsDir(): Promise<string> {

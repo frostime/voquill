@@ -5,6 +5,7 @@ import {
   getActiveDictationLanguage,
   getConfiguredDictationLanguageCodes,
   getMyDictationLanguage,
+  getIsDictationUnlocked,
   LOCAL_USER_ID,
 } from "./user.utils";
 
@@ -43,6 +44,19 @@ const makeState = (args: {
     hotkeyById,
   };
 };
+
+describe("dictation while changing the model folder", () => {
+  it.each(["saving", "restart-required"] as const)(
+    "blocks recording when the folder status is %s",
+    (status) => {
+      const state = structuredClone(INITIAL_APP_STATE);
+      state.onboarding.dictationOverrideEnabled = true;
+      expect(getIsDictationUnlocked(state)).toBe(true);
+      state.settings.aiTranscription.modelsDirChangeStatus = status;
+      expect(getIsDictationUnlocked(state)).toBe(false);
+    },
+  );
+});
 
 describe("getConfiguredDictationLanguageCodes", () => {
   it("always includes auto", () => {

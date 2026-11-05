@@ -1,4 +1,5 @@
 import { NativeSetupDialog } from "./NativeSetupDialog";
+import { ModelFolderRestartDialog } from "./ModelFolderRestartDialog";
 import { AIAgentModeDialog } from "../settings/AIAgentModeDialog";
 import { AIPostProcessingDialog } from "../settings/AIPostProcessingDialog";
 import { AITranscriptionDialog } from "../settings/AITranscriptionDialog";
@@ -36,6 +37,7 @@ export const RootDialogs = () => {
       <AppKeybindingsDialog />
       <DiagnosticsDialog />
       <NativeSetupDialog />
+      <ModelFolderRestartDialog />
     </>
   );
 };
