@@ -5,6 +5,9 @@ name: Build test installer
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/local-models-qwen
 
 jobs:
   build-installer:
