@@ -8,6 +8,10 @@ on:
   push:
     branches:
       - feat/local-models-qwen
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - ".github/workflows/build-installer-test.yml"
 
 jobs:
   build-installer:
