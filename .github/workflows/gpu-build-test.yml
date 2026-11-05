@@ -15,6 +15,7 @@ jobs:
     env:
       CARGO_TARGET_DIR: D:/cargo
       VOQUILL_REQUIRE_GPU_SIDECAR: "true"
+      VOQUILL_SIDECAR_PROFILE: release
     steps:
       - name: Checkout
         uses: actions/checkout@v4
