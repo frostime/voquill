@@ -352,8 +352,13 @@ function prepareTranscribeRuntime() {
   }
 
   mkdirSync(targetDir, { recursive: true });
+  // Use the Windows bsdtar: MSYS/GNU tar treats "C:\..." as a remote host.
+  const systemRoot = process.env.SystemRoot || "C:\Windows";
+  const windowsTar = join(systemRoot, "System32", "tar.exe");
+  const tarCommand =
+    process.platform === "win32" && existsSync(windowsTar) ? windowsTar : "tar";
   const extract = spawnSync(
-    "tar",
+    tarCommand,
     ["-xzf", archive, "-C", targetDir, "--strip-components=1"],
     { stdio: "inherit" },
   );

@@ -25,14 +25,26 @@
 - 设置页两个新控件的交互（保存、重启后保留、下载中禁止改目录）。
 - migration 070 在既有数据库上的实际迁移。
 
-## Phase 2：Qwen3-ASR 内置 —— 未开始
+## Phase 2：Qwen3-ASR 内置 —— 已实现，CPU/GPU 均跑通
 
-路线已在 spike 中确认：`libloading` 加载上游预编译 `transcribe.dll`（147 个 C ABI 导出，自带 Vulkan/CPU 后端），不引入 C++ 构建。要点：
+实现：
 
-- sidecar 启动时先 `transcribe_init_backends(<dll 目录>)`，并保证 `ggml*.dll` 可被找到；
-- 模型登记 `qwen3-asr-0.6b`：`Qwen3-ASR-0.6B-Q8_0.gguf`、`850423456` 字节、`handy-computer/Qwen3-ASR-0.6B-gguf` @ `e4e16599…`；
-- 参数只映射语言与 `initialPrompt`（字典不单独传 vocabulary）；
-- 本地模型选中时取消 sidecar 的空闲销毁，避免每次口述多 3.4 秒装载。
+1. `models.rs`：`WhisperModel` → `LocalModel` 改名（含 TS 侧 `LocalModelId` / `LOCAL_MODELS`），新增 `qwen3-asr-0.6b` 与 `family()`；Qwen 的仓库路径钉在 `e4e16599…`，字节数 `850423456`。
+2. `transcribe_dll.rs`（新）：`libloading` 加载 `transcribe.dll`，先 `transcribe_init_backends(<目录>)` 再把该目录加入 DLL 搜索路径；封装 model/session 生命周期（Drop 里释放）、CPU 设备选择、`run` 与设备名。
+3. `qwen.rs`（新）：按路径缓存已加载模型，复用 whisper 的 16 kHz 重采样；语言与 `initialPrompt` 映射进 `transcribe_run_params`。
+4. `api.rs`：按 `family()` 分派转写与模型校验；同时修掉了"任何含 model+failed 的错误都报成 model_not_downloaded"的错误映射。
+5. 打包：`prepare-sidecars.mjs` 幂等下载并解压上游预编译包到 `src-tauri/resources/transcribe/`（失败只告警），`tauri.conf.json` 增加该资源；sidecar 通过 `RUST_TRANSCRIPTION_NATIVE_DIR` 获得路径。
+6. 本地模型不再按 60 秒空闲销毁，避免每次口述多付 3.4 秒装载。
+
+验证：
+
+- Rust：9 项单元测试通过（含家族映射、Qwen 字节数）。
+- CI `verify-local-models`：tsc + oxlint + 单测 + Rust 测试全绿。
+- CPU 端到端（sidecar 真机、debug 构建）：session → chunks → finalize 返回正确中文，设备 `Intel … (cpu)`。
+- GPU 端到端（CI 产出的 release GPU 侧车，下载到本机运行）：`/v1/devices` 报 `NVIDIA GeForce GTX 1050 Ti (Vulkan)`；同一段 8.3 秒音频首跑 8.2 秒（含装载与预热），30.6 秒音频 2.1 秒（14.2× 实时），文本与直接调 DLL 的结果一致。
+- 打包步骤在本机实测：`resources/transcribe/` 得到 15 个文件（含 `transcribe.dll`、`ggml-vulkan.dll`）。
+
+已知行为：首个口述会包含模型装载与着色器预热（8.3 秒音频约 8 秒），之后同一进程内为稳态速度。
 
 ## Phase 3：全部本地模型用独显 —— 未开始
 
