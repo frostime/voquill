@@ -39,8 +39,8 @@ import { getEffectiveTranscriptionMode } from "../../utils/user.utils";
 import { formatSize } from "../../utils/format.utils";
 import { type LocalSidecarDownloadSnapshot } from "../../sidecars";
 import {
-  type LocalWhisperModel,
-  normalizeLocalWhisperModel,
+  type LocalModelId,
+  normalizeLocalModelId,
 } from "../../utils/local-transcription.utils";
 import { ManagedByOrgNotice } from "../common/ManagedByOrgNotice";
 import {
@@ -52,7 +52,7 @@ import { ApiKeyList } from "./ApiKeyList";
 import { VoquillCloudSetting } from "./VoquillCloudSetting";
 
 type ModelOption = {
-  value: LocalWhisperModel;
+  value: LocalModelId;
   label: string;
   helper: string;
 };
@@ -92,6 +92,11 @@ const MODEL_OPTIONS: ModelOption[] = [
     value: "hindi2hinglish",
     label: "Whisper Hindi2Hinglish Apex (595 MB)",
     helper: "Hindi speech transcribed as Hinglish (Latin script)",
+  },
+  {
+    value: "qwen3-asr-0.6b",
+    label: "Qwen3-ASR 0.6B (850 MB)",
+    helper: "Multilingual, strong on Chinese; no realtime output",
   },
 ];
 
@@ -140,7 +145,7 @@ export const AITranscriptionConfiguration = ({
   const deviceValue = hasSelectedDevice
     ? transcription.device
     : (transcription.availableDevices[0]?.id ?? CPU_DEVICE_VALUE);
-  const modelValue = normalizeLocalWhisperModel(transcription.modelSize);
+  const modelValue = normalizeLocalModelId(transcription.modelSize);
   const modelDownloadSnapshot =
     localTranscriptionConfig.modelDownloads[modelValue];
   const modelDownloading = isLocalTranscriptionModelDownloadInProgress(
@@ -234,7 +239,7 @@ export const AITranscriptionConfiguration = ({
 
   const handleModelSizeChange = useCallback(
     (rawModelSize: string) => {
-      const modelSize = normalizeLocalWhisperModel(rawModelSize);
+      const modelSize = normalizeLocalModelId(rawModelSize);
       if (!isLocalTranscriptionModelSelectable(transcription, modelSize)) {
         showErrorSnackbar("Download this model before selecting it.");
         return;
@@ -250,7 +255,7 @@ export const AITranscriptionConfiguration = ({
   }, []);
 
   const handleDownloadModel = useCallback(
-    (model: LocalWhisperModel) => {
+    (model: LocalModelId) => {
       if (
         isLocalTranscriptionModelDownloadInProgress(
           localTranscriptionConfig.modelDownloads[model],
@@ -265,7 +270,7 @@ export const AITranscriptionConfiguration = ({
   );
 
   const handleDeleteModel = useCallback(
-    (model: LocalWhisperModel) => {
+    (model: LocalModelId) => {
       if (localTranscriptionConfig.modelDeletes[model]) {
         return;
       }
@@ -411,7 +416,7 @@ export const AITranscriptionConfiguration = ({
                 handleModelSizeChange(String(event.target.value))
               }
               renderValue={(value) => {
-                const model = normalizeLocalWhisperModel(String(value));
+                const model = normalizeLocalModelId(String(value));
                 const option = MODEL_OPTIONS.find(
                   (item) => item.value === model,
                 );

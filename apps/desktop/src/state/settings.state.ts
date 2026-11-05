@@ -11,8 +11,8 @@ import type {
   LocalSidecarModelStatus,
 } from "../sidecars";
 import {
-  LOCAL_WHISPER_MODELS,
-  type LocalWhisperModel,
+  LOCAL_MODELS,
+  type LocalModelId,
 } from "../utils/local-transcription.utils";
 import {
   type AgentMode,
@@ -28,7 +28,7 @@ export type SettingsApiKeyProvider = ApiKeyProvider;
 export type SettingsApiKey = ApiKey;
 
 export type LocalTranscriptionModelStatusMap = Record<
-  LocalWhisperModel,
+  LocalModelId,
   LocalSidecarModelStatus | null
 >;
 
@@ -37,9 +37,9 @@ export type LocalTranscriptionModelManagementState = {
   modelStatusesLoading: boolean;
   modelStatusesLoaded: boolean;
   modelDownloads: Partial<
-    Record<LocalWhisperModel, LocalSidecarDownloadSnapshot>
+    Record<LocalModelId, LocalSidecarDownloadSnapshot>
   >;
-  modelDeletes: Partial<Record<LocalWhisperModel, boolean>>;
+  modelDeletes: Partial<Record<LocalModelId, boolean>>;
 };
 
 export type SettingsTranscriptionState = {
@@ -101,7 +101,7 @@ export type SettingsState = {
 export const createEmptyLocalTranscriptionModelStatusMap =
   (): LocalTranscriptionModelStatusMap =>
     Object.fromEntries(
-      LOCAL_WHISPER_MODELS.map((model) => [model, null]),
+      LOCAL_MODELS.map((model) => [model, null]),
     ) as LocalTranscriptionModelStatusMap;
 
 export const isLocalTranscriptionModelDownloadInProgress = (
@@ -112,7 +112,7 @@ export const isLocalTranscriptionModelDownloadInProgress = (
 
 export const isLocalTranscriptionModelSelectable = (
   transcription: SettingsTranscriptionState,
-  model: LocalWhisperModel,
+  model: LocalModelId,
 ): boolean => {
   const status = transcription.localModelManagement.modelStatuses[model];
   return !!status?.downloaded && !!status?.valid;

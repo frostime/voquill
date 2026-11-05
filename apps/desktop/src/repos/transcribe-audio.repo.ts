@@ -29,8 +29,8 @@ import { getLocalTranscriptionSidecarManager } from "../sidecars";
 import {
   getTranscriptionSidecarDeviceId,
   isGpuPreferredTranscriptionDevice,
-  type LocalWhisperModel,
-  normalizeLocalWhisperModel,
+  type LocalModelId,
+  normalizeLocalModelId,
 } from "../utils/local-transcription.utils";
 import { getLogger } from "../utils/log.utils";
 import { NEW_SERVER_URL } from "../utils/new-server.utils";
@@ -44,7 +44,7 @@ import {
 import { BaseRepo } from "./base.repo";
 
 type TranscriptionOptionsPayload = {
-  model: LocalWhisperModel;
+  model: LocalModelId;
   preferGpu: boolean;
   deviceId?: string;
 };
@@ -190,7 +190,7 @@ export class LocalTranscribeAudioRepo extends BaseTranscribeAudioRepo {
     getLogger().info("transcribing with", device, modelSize);
 
     return {
-      model: normalizeLocalWhisperModel(modelSize || DEFAULT_MODEL_SIZE),
+      model: normalizeLocalModelId(modelSize || DEFAULT_MODEL_SIZE),
       preferGpu: isGpuPreferredTranscriptionDevice(device),
       deviceId: getTranscriptionSidecarDeviceId(device),
     };

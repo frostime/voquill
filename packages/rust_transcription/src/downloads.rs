@@ -8,7 +8,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::models::WhisperModel;
+use crate::models::LocalModel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -23,7 +23,7 @@ pub enum DownloadJobStatus {
 #[serde(rename_all = "camelCase")]
 pub struct DownloadJobSnapshot {
     pub job_id: Uuid,
-    pub model: WhisperModel,
+    pub model: LocalModel,
     pub status: DownloadJobStatus,
     pub bytes_downloaded: u64,
     pub total_bytes: Option<u64>,
@@ -33,7 +33,7 @@ pub struct DownloadJobSnapshot {
 
 #[derive(Debug, Clone)]
 struct DownloadJobRecord {
-    model: WhisperModel,
+    model: LocalModel,
     status: DownloadJobStatus,
     bytes_downloaded: u64,
     total_bytes: Option<u64>,
@@ -43,7 +43,7 @@ struct DownloadJobRecord {
 #[derive(Default)]
 struct DownloadStore {
     jobs: HashMap<Uuid, DownloadJobRecord>,
-    active_by_model: HashMap<WhisperModel, Uuid>,
+    active_by_model: HashMap<LocalModel, Uuid>,
 }
 
 #[derive(Clone, Default)]
@@ -59,7 +59,7 @@ enum DownloadAttemptError {
 impl DownloadRegistry {
     pub async fn start_or_get_active(
         &self,
-        model: WhisperModel,
+        model: LocalModel,
         sources: Vec<String>,
         expected_bytes: Option<u64>,
         destination: PathBuf,
@@ -124,7 +124,7 @@ impl DownloadRegistry {
         Ok(snapshot)
     }
 
-    pub async fn get_job(&self, model: WhisperModel, job_id: Uuid) -> Option<DownloadJobSnapshot> {
+    pub async fn get_job(&self, model: LocalModel, job_id: Uuid) -> Option<DownloadJobSnapshot> {
         let store = self.inner.lock().await;
         let snapshot = store.snapshot(job_id)?;
         if snapshot.model == model {
@@ -134,7 +134,7 @@ impl DownloadRegistry {
         }
     }
 
-    pub async fn get_active_job(&self, model: WhisperModel) -> Option<DownloadJobSnapshot> {
+    pub async fn get_active_job(&self, model: LocalModel) -> Option<DownloadJobSnapshot> {
         let store = self.inner.lock().await;
         let job_id = store.active_by_model.get(&model).copied()?;
         store.snapshot(job_id)
@@ -142,7 +142,7 @@ impl DownloadRegistry {
 
     async fn record_completed(
         &self,
-        model: WhisperModel,
+        model: LocalModel,
         existing_size: u64,
     ) -> Option<DownloadJobSnapshot> {
         let job_id = Uuid::new_v4();
@@ -163,7 +163,7 @@ impl DownloadRegistry {
     async fn run_download_job(
         &self,
         job_id: Uuid,
-        model: WhisperModel,
+        model: LocalModel,
         sources: Vec<String>,
         expected_bytes: Option<u64>,
         destination: PathBuf,
@@ -326,7 +326,7 @@ impl DownloadRegistry {
     async fn mark_completed(
         &self,
         job_id: Uuid,
-        model: WhisperModel,
+        model: LocalModel,
         downloaded: u64,
         total_bytes: Option<u64>,
     ) -> Result<(), String> {
@@ -348,7 +348,7 @@ impl DownloadRegistry {
     async fn mark_failed(
         &self,
         job_id: Uuid,
-        model: WhisperModel,
+        model: LocalModel,
         error_message: String,
     ) -> Result<(), String> {
         let mut store = self.inner.lock().await;

@@ -3,7 +3,8 @@ use std::time::Duration;
 
 use crate::config::SidecarConfig;
 use crate::downloads::DownloadRegistry;
-use crate::models::WhisperModel;
+use crate::models::LocalModel;
+use crate::qwen::QwenEngine;
 use crate::streaming_sessions::TranscriptionSessionRegistry;
 use crate::transcription::TranscriptionEngine;
 
@@ -14,6 +15,7 @@ pub struct AppState {
     pub transcription_sessions: TranscriptionSessionRegistry,
     pub http_client: reqwest::Client,
     pub transcriber: TranscriptionEngine,
+    pub qwen: QwenEngine,
 }
 
 impl AppState {
@@ -27,6 +29,7 @@ impl AppState {
 
         Ok(Self {
             transcriber: TranscriptionEngine::new(config.mode),
+            qwen: QwenEngine::new(config.mode),
             config,
             downloads: DownloadRegistry::default(),
             transcription_sessions: TranscriptionSessionRegistry::default(),
@@ -34,7 +37,7 @@ impl AppState {
         })
     }
 
-    pub fn model_path(&self, model: WhisperModel) -> PathBuf {
+    pub fn model_path(&self, model: LocalModel) -> PathBuf {
         self.config.models_dir.join(model.filename())
     }
 }

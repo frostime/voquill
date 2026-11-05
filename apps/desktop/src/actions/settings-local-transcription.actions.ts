@@ -10,8 +10,8 @@ import {
   type LocalSidecarDevice,
 } from "../sidecars";
 import {
-  LOCAL_WHISPER_MODELS,
-  type LocalWhisperModel,
+  LOCAL_MODELS,
+  type LocalModelId,
   normalizeTranscriptionDevice,
 } from "../utils/local-transcription.utils";
 import { getEffectiveTranscriptionMode } from "../utils/user.utils";
@@ -103,7 +103,7 @@ export const refreshLocalTranscriptionModelStatuses = async ({
   try {
     const statuses = await sidecarManager.listModelStatuses({
       validate: true,
-      models: LOCAL_WHISPER_MODELS,
+      models: LOCAL_MODELS,
     });
 
     produceAppState((draft) => {
@@ -132,7 +132,7 @@ export const refreshLocalTranscriptionModelStatuses = async ({
 };
 
 export const downloadLocalTranscriptionModel = async (
-  model: LocalWhisperModel,
+  model: LocalModelId,
 ): Promise<void> => {
   const state = getAppState();
   if (getEffectiveTranscriptionMode(state) !== "local") {
@@ -171,7 +171,7 @@ export const downloadLocalTranscriptionModel = async (
 };
 
 export const deleteLocalTranscriptionModel = async (
-  model: LocalWhisperModel,
+  model: LocalModelId,
 ): Promise<LocalTranscriptionModelStatusMap | null> => {
   const state = getAppState();
   if (getEffectiveTranscriptionMode(state) !== "local") {

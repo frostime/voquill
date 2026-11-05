@@ -1,7 +1,7 @@
 import {
   supportsGpuTranscriptionDevice,
-  type LocalWhisperModel,
-  LOCAL_WHISPER_MODELS,
+  type LocalModelId,
+  LOCAL_MODELS,
 } from "../utils/local-transcription.utils";
 import { getLogger } from "../utils/log.utils";
 import {
@@ -54,11 +54,11 @@ class LocalTranscriptionSidecarFacade {
   // models directory, and two download registries would race over it.
   async listModelStatuses({
     validate = true,
-    models = LOCAL_WHISPER_MODELS,
+    models = LOCAL_MODELS,
   }: {
     validate?: boolean;
-    models?: LocalWhisperModel[];
-  }): Promise<Record<LocalWhisperModel, LocalSidecarModelStatus>> {
+    models?: LocalModelId[];
+  }): Promise<Record<LocalModelId, LocalSidecarModelStatus>> {
     await this.cpuSidecar.ensureStarted();
     return await this.cpuSidecar.listModelStatuses(models, validate);
   }
@@ -67,7 +67,7 @@ class LocalTranscriptionSidecarFacade {
     model,
     validate = true,
   }: {
-    model: LocalWhisperModel;
+    model: LocalModelId;
     validate?: boolean;
   }): Promise<LocalSidecarModelStatus> {
     await this.cpuSidecar.ensureStarted();
@@ -78,7 +78,7 @@ class LocalTranscriptionSidecarFacade {
     model,
     onProgress,
   }: {
-    model: LocalWhisperModel;
+    model: LocalModelId;
     onProgress?: (snapshot: LocalSidecarDownloadSnapshot) => void;
   }): Promise<LocalSidecarModelStatus> {
     await this.cpuSidecar.ensureStarted();
@@ -88,7 +88,7 @@ class LocalTranscriptionSidecarFacade {
   async deleteModel({
     model,
   }: {
-    model: LocalWhisperModel;
+    model: LocalModelId;
   }): Promise<LocalSidecarModelStatus> {
     await this.cpuSidecar.ensureStarted();
     const result = await this.cpuSidecar.deleteModel(model);

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::errors::ApiError;
-use crate::models::WhisperModel;
+use crate::models::{LocalModel, ModelFamily};
 use crate::state::AppState;
 use crate::transcription::{ComputeDevice, TranscriptionInput};
 
@@ -103,7 +103,7 @@ struct DownloadRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ModelStatusResponse {
-    model: WhisperModel,
+    model: LocalModel,
     downloaded: bool,
     valid: bool,
     file_bytes: Option<u64>,
@@ -210,7 +210,7 @@ async fn delete_model(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TranscribeRequest {
-    model: WhisperModel,
+    model: LocalModel,
     samples: Vec<f32>,
     sample_rate: u32,
     language: Option<String>,
@@ -221,7 +221,7 @@ struct TranscribeRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateTranscriptionSessionRequest {
-    model: WhisperModel,
+    model: LocalModel,
     sample_rate: u32,
     language: Option<String>,
     initial_prompt: Option<String>,
@@ -256,7 +256,7 @@ struct DeleteTranscriptionSessionResponse {
 #[serde(rename_all = "camelCase")]
 struct TranscribeResponse {
     text: String,
-    model: WhisperModel,
+    model: LocalModel,
     inference_device: String,
     duration_ms: u128,
 }
@@ -383,14 +383,14 @@ async fn delete_transcription_session(
     Ok(Json(DeleteTranscriptionSessionResponse { deleted }))
 }
 
-fn parse_model(value: &str) -> Result<WhisperModel, ApiError> {
-    WhisperModel::from_slug(value).ok_or_else(|| {
+fn parse_model(value: &str) -> Result<LocalModel, ApiError> {
+    LocalModel::from_slug(value).ok_or_else(|| {
         ApiError::bad_request(
             "invalid_model",
             format!(
                 "unsupported model '{}'; supported values: {}",
                 value,
-                WhisperModel::supported().join(", ")
+                LocalModel::supported().join(", ")
             ),
         )
     })
@@ -426,7 +426,7 @@ fn decode_f32le_samples(bytes: &[u8]) -> Result<Vec<f32>, ApiError> {
 
 async fn ensure_model_downloaded(
     state: &AppState,
-    model: WhisperModel,
+    model: LocalModel,
 ) -> Result<PathBuf, ApiError> {
     let model_path = state.model_path(model);
     let metadata = tokio::fs::metadata(&model_path).await.map_err(|_| {
@@ -456,7 +456,7 @@ async fn ensure_model_downloaded(
 
 async fn run_transcription_request(
     state: &AppState,
-    model: WhisperModel,
+    model: LocalModel,
     model_path: PathBuf,
     samples: Vec<f32>,
     sample_rate: u32,
@@ -464,23 +464,40 @@ async fn run_transcription_request(
     initial_prompt: Option<String>,
     device_id: Option<String>,
 ) -> Result<crate::transcription::TranscriptionOutput, ApiError> {
-    state
-        .transcriber
-        .transcribe(TranscriptionInput {
-            model_path,
-            samples,
-            sample_rate,
-            language,
-            initial_prompt,
-            device_id,
-        })
-        .await
-        .map_err(|error| map_transcription_error(model, error))
+    let result = match model.family() {
+        ModelFamily::Whisper => {
+            state
+                .transcriber
+                .transcribe(TranscriptionInput {
+                    model_path,
+                    samples,
+                    sample_rate,
+                    language,
+                    initial_prompt,
+                    device_id,
+                })
+                .await
+        }
+        ModelFamily::Qwen => {
+            state
+                .qwen
+                .transcribe(crate::qwen::QwenInput {
+                    model_path,
+                    samples,
+                    sample_rate,
+                    language,
+                    initial_prompt,
+                })
+                .await
+        }
+    };
+
+    result.map_err(|error| map_transcription_error(model, error))
 }
 
 async fn read_model_status(
     state: &AppState,
-    model: WhisperModel,
+    model: LocalModel,
     validate: bool,
 ) -> Result<ModelStatusResponse, ApiError> {
     let model_path = state.model_path(model);
@@ -513,7 +530,12 @@ async fn read_model_status(
         });
     }
 
-    match state.transcriber.validate_model(model_path).await {
+    let validation = match model.family() {
+        ModelFamily::Whisper => state.transcriber.validate_model(model_path).await,
+        ModelFamily::Qwen => state.qwen.validate_model(model_path).await,
+    };
+
+    match validation {
         Ok(valid) => Ok(ModelStatusResponse {
             model,
             downloaded: true,
@@ -533,7 +555,7 @@ async fn read_model_status(
 
 async fn remove_partial_model_downloads(
     model_path: &FsPath,
-    model: WhisperModel,
+    model: LocalModel,
 ) -> Result<(), ApiError> {
     let parent = match model_path.parent() {
         Some(parent) => parent,
@@ -597,7 +619,7 @@ async fn remove_partial_model_downloads(
     Ok(())
 }
 
-fn map_transcription_error(model: WhisperModel, error: String) -> ApiError {
+fn map_transcription_error(model: LocalModel, error: String) -> ApiError {
     let lower = error.to_ascii_lowercase();
 
     if lower.contains("sample")
@@ -608,7 +630,10 @@ fn map_transcription_error(model: WhisperModel, error: String) -> ApiError {
         ApiError::bad_request("invalid_transcription_request", error)
     } else if lower.contains("device") {
         ApiError::bad_request("invalid_device", error)
-    } else if lower.contains("model") && lower.contains("failed") {
+    } else if lower.contains("not downloaded")
+        || lower.contains("no such file")
+        || lower.contains("os error 2")
+    {
         ApiError::not_found(
             "model_not_downloaded",
             format!(

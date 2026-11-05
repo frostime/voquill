@@ -26,7 +26,7 @@ import { getIsEnterpriseEnabled } from "../utils/enterprise.utils";
 import { PRIMARY_LANGUAGE_SENTINEL } from "../utils/language.utils";
 import {
   isGpuPreferredTranscriptionDevice,
-  normalizeLocalWhisperModel,
+  normalizeLocalModelId,
   normalizeTranscriptionDevice,
   supportsGpuTranscriptionDevice,
 } from "../utils/local-transcription.utils";
@@ -544,7 +544,7 @@ export const setModelDownloadSource = async (
 export const setPreferredTranscriptionModelSize = async (
   modelSize: string,
 ): Promise<void> => {
-  const normalizedModelSize = normalizeLocalWhisperModel(modelSize);
+  const normalizedModelSize = normalizeLocalModelId(modelSize);
   produceAppState((draft) => {
     draft.settings.aiTranscription.modelSize = normalizedModelSize;
   });

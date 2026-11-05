@@ -1032,6 +1032,7 @@ dependencies = [
  "futures-util",
  "hound",
  "http-body-util",
+ "libloading",
  "reqwest",
  "serde",
  "serde_json",

@@ -4,28 +4,31 @@ import {
   getTranscriptionSidecarDeviceId,
   isGpuPreferredTranscriptionDevice,
   normalizeTranscriptionDevice,
-  normalizeLocalWhisperModel,
+  normalizeLocalModelId,
   supportsGpuTranscriptionDevice,
 } from "./local-transcription.utils";
 
 describe("local-transcription-sidecar manager helpers", () => {
   it("normalizes model values to supported sidecar models", () => {
-    expect(normalizeLocalWhisperModel("tiny")).toBe("tiny");
-    expect(normalizeLocalWhisperModel("tiny.en")).toBe("tiny");
-    expect(normalizeLocalWhisperModel("base")).toBe("base");
-    expect(normalizeLocalWhisperModel("base.en")).toBe("base");
-    expect(normalizeLocalWhisperModel("small")).toBe("small");
-    expect(normalizeLocalWhisperModel("small.en")).toBe("small");
-    expect(normalizeLocalWhisperModel("medium")).toBe("medium");
-    expect(normalizeLocalWhisperModel("medium.en")).toBe("medium");
-    expect(normalizeLocalWhisperModel("large-turbo")).toBe("turbo");
-    expect(normalizeLocalWhisperModel("large-v3")).toBe("large");
-    expect(normalizeLocalWhisperModel("large")).toBe("large");
+    expect(normalizeLocalModelId("tiny")).toBe("tiny");
+    expect(normalizeLocalModelId("tiny.en")).toBe("tiny");
+    expect(normalizeLocalModelId("base")).toBe("base");
+    expect(normalizeLocalModelId("base.en")).toBe("base");
+    expect(normalizeLocalModelId("small")).toBe("small");
+    expect(normalizeLocalModelId("small.en")).toBe("small");
+    expect(normalizeLocalModelId("medium")).toBe("medium");
+    expect(normalizeLocalModelId("medium.en")).toBe("medium");
+    expect(normalizeLocalModelId("large-turbo")).toBe("turbo");
+    expect(normalizeLocalModelId("large-v3")).toBe("large");
+    expect(normalizeLocalModelId("large")).toBe("large");
+    expect(normalizeLocalModelId("qwen3-asr-0.6b")).toBe("qwen3-asr-0.6b");
+    expect(normalizeLocalModelId("qwen3_asr06_b")).toBe("qwen3-asr-0.6b");
+    expect(normalizeLocalModelId("Qwen3-ASR")).toBe("qwen3-asr-0.6b");
   });
 
   it("defaults unknown model values to tiny", () => {
-    expect(normalizeLocalWhisperModel("unknown")).toBe("tiny");
-    expect(normalizeLocalWhisperModel(null)).toBe("tiny");
+    expect(normalizeLocalModelId("unknown")).toBe("tiny");
+    expect(normalizeLocalModelId(null)).toBe("tiny");
   });
 
   it("treats any non-cpu device value as gpu preference on supported OSes", () => {
