@@ -46,9 +46,20 @@
 
 已知行为：首个口述会包含模型装载与着色器预热（8.3 秒音频约 8 秒），之后同一进程内为稳态速度。
 
-## Phase 3：全部本地模型用独显 —— 未开始
+## Phase 3：全部本地模型用独显 —— 已实现，等待安装包实测
 
-设备接口补 `device_type`（独显/核显/CPU），只把独显作为 GPU 选项；用户从未选择过设备时默认选独显；Whisper 的显卡版由 CI 构建（`gpu-build-test` 已验证可产出：CPU 12.4 MB / GPU 68.0 MB，且本机 `/v1/devices` 能枚举到 GTX 1050 Ti）。
+实现：
+
+1. `transcribe_dll.rs`：Qwen 在 GPU 模式下**显式挑选 `device_type == GPU`（独显）**的设备，不再让运行时自由选择；找不到独显就报错（而不是退回核显）。
+2. 用户从未选择过设备时默认选独显：新增 `deviceChosen` 状态（来自 `transcriptionDevice != null`），`resolvePreferredDevice` 在未选择时优先第一个 GPU 设备；用户明确选过 CPU 则保持不动。
+3. 新增 `build-installer-test` 工作流（手动/分支触发）：装 Vulkan SDK → 构建显卡版 sidecar → 打包安装包 → 校验 GPU 二进制与 CPU 二进制不同、`resources/transcribe/transcribe.dll` 已打包。
+
+与 SHAPE 的偏差（有证据的缩减）：原计划给 `/v1/devices` 增加 `device_type` 字段并在应用侧过滤核显。实测 CI 产出的显卡版 sidecar 只枚举到 `NVIDIA GeForce GTX 1050 Ti (Vulkan)`，Intel UHD 630 并未出现——whisper 的设备枚举本来就只挑 `GGML_BACKEND_DEVICE_TYPE_GPU`。因此**不需要**新增字段；"GPU 只算独显"在 Whisper 路径已成立，Qwen 路径由上面第 1 点保证。
+
+验证：
+
+- Rust 单测与 CI `verify-local-models` 全绿（含 Qwen 独显选择逻辑编译）。
+- 待验证（需要安装）：安装包内设备下拉是否出现 1050 Ti、Whisper 是否跑在该显卡上、Qwen 首次口述与后续口述的耗时。
 
 ## 环境备注
 
