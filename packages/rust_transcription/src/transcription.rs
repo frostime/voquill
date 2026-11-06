@@ -348,7 +348,7 @@ fn collect_transcription(state: &whisper_rs::WhisperState) -> Result<String, Str
     Ok(transcript.trim().to_string())
 }
 
-fn resample_to_16khz(samples: &[f32], sample_rate: u32) -> Vec<f32> {
+pub(crate) fn resample_to_16khz(samples: &[f32], sample_rate: u32) -> Vec<f32> {
     const TARGET_RATE: u32 = 16_000;
 
     if sample_rate == 0 || samples.is_empty() {

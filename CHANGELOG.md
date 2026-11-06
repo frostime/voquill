@@ -7,6 +7,21 @@
 
 ## [Unreleased]
 
+## [10.1.0] - 2026-11-06
+
+### Added
+
+- 本地模型下载源可在设置里切换（镜像优先默认 / HuggingFace 官方）。下载按序尝试候选源，只有全部失败才报错；成功后核对文件大小，镜像返回错误页面或半截文件不会被当成已下载。
+- 模型保存文件夹可配置（设置 → AI 转写 → Local），可填写 D 盘等完整路径，留空使用默认位置。明确确认“保存并重启”后立即重启生效；录音、转写或模型下载/删除中不能修改，旧文件夹的模型不会被移动或删除。
+- 内置 `Qwen3-ASR 0.6B` 本地模型（850 MB，Q8_0 GGUF，与 hex 使用的产物一致）。它由预编译的 transcribe.cpp 运行时驱动，支持独立显卡加速；多个转写请求依次计算，不支持实时逐字输出与时间戳。
+- 有独立显卡时默认使用独显：用户从未选择过设备时自动选中独显，核显不作为 GPU 选项。Whisper 与 Qwen 都遵循此规则。
+- 本地转写进程常驻，不再空闲 60 秒销毁，避免每次口述重新装载模型（Qwen 在显卡上装载约 3.4 秒）。
+
+### Changed
+
+- 本地转写只使用当前模型文件夹中已有的可用模型。缺失时提示先到设置下载，加载失败时明确报错，不再在录音或重新转写时自动下载模型。
+- 删除并重新下载同一模型后，需要重启 Voquill 再使用；设置页会说明此限制。
+
 ## [10.0.4] - 2026-09-25
 
 ### Added
@@ -63,7 +78,8 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.4...HEAD
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.1.0...HEAD
+[10.1.0]: https://github.com/frostime/voquill/compare/v10.0.4...v10.1.0
 [10.0.4]: https://github.com/frostime/voquill/compare/v10.0.3...v10.0.4
 [10.0.3]: https://github.com/frostime/voquill/compare/v10.0.2...v10.0.3
 [10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2

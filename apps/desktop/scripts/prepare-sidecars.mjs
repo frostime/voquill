@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -242,6 +249,8 @@ if (isWindowsTarget(targetTriple)) {
   buildNativePill("rust_windows_pill", "voquill-windows-pill");
 }
 
+prepareTranscribeRuntime();
+
 function buildNativePill(packageDir, binaryName) {
   const pillManifestPath = join(
     repoRoot,
@@ -308,6 +317,61 @@ function buildNativePill(packageDir, binaryName) {
       `[sidecar] Expected pill binary not produced: ${pillSourcePath}`,
     );
   }
+}
+
+// --- Prebuilt transcribe.cpp runtime (Qwen3-ASR) ---
+// The GGUF engine ships as a prebuilt Windows package; we do not compile it.
+function prepareTranscribeRuntime() {
+  const targetDir = join(desktopDir, "src-tauri", "resources", "transcribe");
+  if (existsSync(join(targetDir, "transcribe.dll"))) {
+    console.log(`[sidecar] transcribe runtime already present: ${targetDir}`);
+    return;
+  }
+
+  if (!isWindowsTarget(targetTriple)) {
+    console.warn(
+      `[sidecar] Skipping transcribe runtime for ${targetTriple}: only the Windows package is published`,
+    );
+    return;
+  }
+
+  const version = process.env.VOQUILL_TRANSCRIBE_VERSION?.trim() || "0.4.1";
+  const asset = `transcribe-native-${version}-windows-x86_64-cpu-vulkan.tar.gz`;
+  const url = `https://github.com/handy-computer/transcribe.cpp/releases/download/v${version}/${asset}`;
+  const archive = join(tmpdir(), asset);
+
+  console.log(`[sidecar] Downloading transcribe runtime: ${url}`);
+  const download = spawnSync("curl", ["-sSL", "-o", archive, url], {
+    stdio: "inherit",
+  });
+  if (download.status !== 0) {
+    console.warn(
+      `[sidecar] Unable to download the transcribe runtime; Qwen models stay unavailable (${url})`,
+    );
+    return;
+  }
+
+  mkdirSync(targetDir, { recursive: true });
+  // Use the Windows bsdtar: MSYS/GNU tar treats "C:\..." as a remote host.
+  const systemRoot = process.env.SystemRoot || "C:\Windows";
+  const windowsTar = join(systemRoot, "System32", "tar.exe");
+  const tarCommand =
+    process.platform === "win32" && existsSync(windowsTar) ? windowsTar : "tar";
+  const extract = spawnSync(
+    tarCommand,
+    ["-xzf", archive, "-C", targetDir, "--strip-components=1"],
+    { stdio: "inherit" },
+  );
+  rmSync(archive, { force: true });
+
+  if (extract.status !== 0 || !existsSync(join(targetDir, "transcribe.dll"))) {
+    console.warn(
+      "[sidecar] Unable to unpack the transcribe runtime; Qwen models stay unavailable",
+    );
+    return;
+  }
+
+  console.log(`[sidecar] Prepared transcribe runtime: ${targetDir}`);
 }
 
 function fail(message) {

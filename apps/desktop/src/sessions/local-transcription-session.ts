@@ -9,7 +9,7 @@ import {
 import {
   getTranscriptionSidecarDeviceId,
   isGpuPreferredTranscriptionDevice,
-  normalizeLocalWhisperModel,
+  normalizeLocalModelId,
 } from "../utils/local-transcription.utils";
 import {
   type LocalSidecarStreamingSession,
@@ -55,7 +55,7 @@ export class LocalTranscriptionSession implements TranscriptionSession {
       const settings = state.settings.aiTranscription;
       const sidecarSession =
         await getLocalTranscriptionSidecarManager().createStreamingSession({
-          model: normalizeLocalWhisperModel(settings.modelSize),
+          model: normalizeLocalModelId(settings.modelSize),
           preferGpu: isGpuPreferredTranscriptionDevice(settings.device),
           sampleRate,
           language: whisperLanguage,

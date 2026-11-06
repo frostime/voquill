@@ -1,7 +1,9 @@
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { appDataDir, join, resolveResource } from "@tauri-apps/api/path";
+import { getAppState } from "../store";
+import { getIntl } from "../i18n";
 import {
-  LOCAL_WHISPER_MODELS,
-  type LocalWhisperModel,
+  LOCAL_MODELS,
+  type LocalModelId,
 } from "../utils/local-transcription.utils";
 import { getLogger } from "../utils/log.utils";
 import type { ShellChildProcess } from "../utils/tauri-shell.utils";
@@ -16,7 +18,7 @@ type SidecarHealthResponse = {
 };
 
 type SidecarModelStatusResponse = {
-  model: LocalWhisperModel;
+  model: LocalModelId;
   downloaded: boolean;
   valid: boolean;
   fileBytes: number | null;
@@ -25,7 +27,7 @@ type SidecarModelStatusResponse = {
 
 type SidecarDownloadSnapshot = {
   jobId: string;
-  model: LocalWhisperModel;
+  model: LocalModelId;
   status: "pending" | "running" | "completed" | "failed";
   bytesDownloaded: number;
   totalBytes: number | null;
@@ -35,7 +37,7 @@ type SidecarDownloadSnapshot = {
 
 type SidecarTranscriptionResponse = {
   text: string;
-  model: LocalWhisperModel;
+  model: LocalModelId;
   inferenceDevice: string;
   durationMs: number;
 };
@@ -69,7 +71,7 @@ export type LocalSidecarDevice = SidecarDeviceResponse & {
 };
 
 export type LocalSidecarTranscribeInput = {
-  model: LocalWhisperModel;
+  model: LocalModelId;
   samples: number[] | Float32Array;
   sampleRate: number;
   language?: string;
@@ -85,7 +87,7 @@ export type LocalSidecarStreamingSessionInput = Omit<
 
 export type LocalSidecarTranscribeOutput = {
   text: string;
-  model: LocalWhisperModel;
+  model: LocalModelId;
   inferenceDevice: string;
   durationMs: number;
   mode: SidecarMode;
@@ -105,7 +107,6 @@ const SIDECAR_REQUEST_RETRY_DELAY_MS = 250;
 const MODEL_DOWNLOAD_TIMEOUT_MS = 45 * 60 * 1_000;
 const MODEL_DOWNLOAD_POLL_INTERVAL_MS = 500;
 const SIDECAR_UPLOAD_CHUNK_SAMPLE_COUNT = 16_000;
-const SIDECAR_IDLE_DISPOSE_MS = 60_000;
 
 export class SidecarRequestError extends Error {
   status?: number;
@@ -137,7 +138,6 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       healthTimeoutMs: 2_000,
       healthPollIntervalMs: 150,
       logPrefix: `local-sidecar:${mode}`,
-      idleDisposeMs: SIDECAR_IDLE_DISPOSE_MS,
     });
 
     this.mode = mode;
@@ -147,10 +147,13 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
 
   protected async buildSpawnEnv(): Promise<Record<string, string>> {
     const modelsDir = await this.resolveModelsDir();
+    const nativeDir = await resolveResource("resources/transcribe");
+
     return {
       RUST_TRANSCRIPTION_HOST: SIDECAR_HOST,
       RUST_TRANSCRIPTION_PORT: "0",
       RUST_TRANSCRIPTION_MODELS_DIR: modelsDir,
+      RUST_TRANSCRIPTION_NATIVE_DIR: nativeDir,
     };
   }
 
@@ -186,7 +189,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   // --- Public API ---
 
   async getModelStatus(
-    model: LocalWhisperModel,
+    model: LocalModelId,
     validate = true,
   ): Promise<LocalSidecarModelStatus> {
     return await this.requestJson<SidecarModelStatusResponse>(
@@ -195,9 +198,9 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   }
 
   async listModelStatuses(
-    models: LocalWhisperModel[] = LOCAL_WHISPER_MODELS,
+    models: LocalModelId[] = LOCAL_MODELS,
     validate = true,
-  ): Promise<Record<LocalWhisperModel, LocalSidecarModelStatus>> {
+  ): Promise<Record<LocalModelId, LocalSidecarModelStatus>> {
     const statuses = await Promise.all(
       models.map(async (model) => {
         const status = await this.getModelStatus(model, validate);
@@ -205,7 +208,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       }),
     );
 
-    const map = {} as Record<LocalWhisperModel, LocalSidecarModelStatus>;
+    const map = {} as Record<LocalModelId, LocalSidecarModelStatus>;
     for (const [model, status] of statuses) {
       map[model] = status;
     }
@@ -227,7 +230,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   }
 
   async downloadModel(
-    model: LocalWhisperModel,
+    model: LocalModelId,
     onProgress?: (snapshot: LocalSidecarDownloadSnapshot) => void,
   ): Promise<LocalSidecarModelStatus> {
     await this.downloadModelInternal(model, onProgress);
@@ -244,9 +247,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     return finalStatus;
   }
 
-  async deleteModel(
-    model: LocalWhisperModel,
-  ): Promise<LocalSidecarModelStatus> {
+  async deleteModel(model: LocalModelId): Promise<LocalSidecarModelStatus> {
     const status = await this.requestJson<SidecarModelStatusResponse>(
       `/v1/models/${model}`,
       { method: "DELETE" },
@@ -259,17 +260,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   async transcribe(
     input: LocalSidecarTranscribeInput,
   ): Promise<LocalSidecarTranscribeOutput> {
-    try {
-      return await this.transcribeInternal(input);
-    } catch (error) {
-      if (!this.isModelMissingError(error)) {
-        throw error;
-      }
-
-      this.invalidateModelReadiness(input.model);
-      await this.downloadModelInternal(input.model);
-      return await this.transcribeInternal(input);
-    }
+    return await this.transcribeInternal(input);
   }
 
   async createStreamingSession(
@@ -406,7 +397,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     };
   }
 
-  invalidateModelReadiness(model: LocalWhisperModel): void {
+  invalidateModelReadiness(model: LocalModelId): void {
     this.readyModels.delete(model);
   }
 
@@ -439,7 +430,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
   }
 
   private toSessionConfigPayload(input: LocalSidecarStreamingSessionInput): {
-    model: LocalWhisperModel;
+    model: LocalModelId;
     sampleRate: number;
     language?: string;
     initialPrompt?: string;
@@ -472,7 +463,7 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     return Float32Array.from(samples);
   }
 
-  private async ensureModelReady(model: LocalWhisperModel): Promise<void> {
+  private async ensureModelReady(model: LocalModelId): Promise<void> {
     const existing = this.readyModels.get(model);
     if (existing) {
       return await existing;
@@ -489,38 +480,49 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     await pending;
   }
 
-  private async ensureModelReadyInternal(
-    model: LocalWhisperModel,
-  ): Promise<void> {
-    const currentStatus = await this.getModelStatus(model, true);
-
-    if (!currentStatus.downloaded || !currentStatus.valid) {
-      await this.downloadModelInternal(model);
-    }
-
-    const finalStatus = await this.getModelStatus(model, true);
-
-    if (!finalStatus.downloaded || !finalStatus.valid) {
+  private async ensureModelReadyInternal(model: LocalModelId): Promise<void> {
+    const status = await this.getModelStatus(model, true);
+    if (!status.downloaded) {
       throw new Error(
-        finalStatus.validationError ||
-          `Model '${model}' failed validation (${this.mode.toUpperCase()})`,
+        getIntl().formatMessage(
+          {
+            defaultMessage:
+              "Download model {model} in Settings before transcribing.",
+          },
+          { model },
+        ),
+      );
+    }
+    if (!status.valid) {
+      throw new Error(
+        status.validationError ||
+          getIntl().formatMessage(
+            { defaultMessage: "Model {model} could not be loaded." },
+            { model },
+          ),
       );
     }
 
     this.markModelReady(model);
   }
 
-  private markModelReady(model: LocalWhisperModel): void {
+  private markModelReady(model: LocalModelId): void {
     this.readyModels.set(model, Promise.resolve());
   }
 
   private async downloadModelInternal(
-    model: LocalWhisperModel,
+    model: LocalModelId,
     onProgress?: (snapshot: LocalSidecarDownloadSnapshot) => void,
   ): Promise<void> {
+    const preferMirror =
+      getAppState().settings.aiTranscription.modelDownloadSource !== "official";
     const job = await this.requestJson<SidecarDownloadSnapshot>(
       `/v1/models/${model}/download`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferMirror }),
+      },
     );
 
     onProgress?.(job);
@@ -565,18 +567,6 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
     );
   }
 
-  private isModelMissingError(error: unknown): boolean {
-    if (!(error instanceof SidecarRequestError)) {
-      return false;
-    }
-
-    if (error.status !== 404) {
-      return false;
-    }
-
-    return !error.code || error.code === "model_not_downloaded";
-  }
-
   private async requestJson<T>(
     path: string,
     init?: RequestInit,
@@ -585,6 +575,14 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       retries?: number;
     },
   ): Promise<T> {
+    if (getAppState().settings.aiTranscription.modelsDirChangeStatus !== null) {
+      throw new Error(
+        getIntl().formatMessage({
+          defaultMessage: "Restart Voquill to use the new model folder.",
+        }),
+      );
+    }
+
     const retries = options?.retries ?? SIDECAR_REQUEST_RETRIES;
     const timeoutMs = options?.timeoutMs ?? SIDECAR_REQUEST_TIMEOUT_MS;
     let lastError: unknown = null;
@@ -680,7 +678,13 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
       };
 
       const code = payload.error?.code;
-      const message = payload.error?.message || fallbackMessage;
+      const message =
+        code === "model_not_downloaded"
+          ? getIntl().formatMessage({
+              defaultMessage:
+                "The local model is missing. Download it in Settings before transcribing.",
+            })
+          : payload.error?.message || fallbackMessage;
       return new SidecarRequestError(message, status, code);
     } catch {
       const text = await response.text().catch(() => "");
@@ -710,9 +714,12 @@ export class LocalTranscriptionSidecar extends BaseSidecar {
 
   private async resolveModelsDir(): Promise<string> {
     if (!this.modelsDirPromise) {
-      this.modelsDirPromise = appDataDir().then(
-        async (baseDir) => await join(baseDir, "transcription-models"),
-      );
+      const configured = getAppState().settings.aiTranscription.modelsDir;
+      this.modelsDirPromise = configured
+        ? Promise.resolve(configured)
+        : appDataDir().then(
+            async (baseDir) => await join(baseDir, "transcription-models"),
+          );
     }
     return await this.modelsDirPromise;
   }

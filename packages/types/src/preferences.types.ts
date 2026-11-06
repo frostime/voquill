@@ -6,12 +6,16 @@ import type {
   TranscriptionMode,
 } from "./common.types";
 
+export type ModelDownloadSource = "mirror" | "official";
+
 export type UserPreferences = {
   userId: string;
   transcriptionMode: Nullable<TranscriptionMode>;
   transcriptionApiKeyId: Nullable<string>;
   transcriptionDevice: Nullable<string>;
   transcriptionModelSize: Nullable<string>;
+  modelsDir: Nullable<string>;
+  modelDownloadSource: ModelDownloadSource;
   postProcessingMode: Nullable<PostProcessingMode>;
   postProcessingApiKeyId: Nullable<string>;
   postProcessingOllamaUrl: Nullable<string>;

@@ -1,8 +1,9 @@
-import type { AppState } from "../state/app.state";
+import { isAbsolute } from "@tauri-apps/api/path";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { getIntl } from "../i18n";
 import { CPU_DEVICE_VALUE } from "../types/ai.types";
 import {
   createEmptyLocalTranscriptionModelStatusMap,
-  isLocalTranscriptionModelDownloadInProgress,
   type LocalTranscriptionModelStatusMap,
 } from "../state/settings.state";
 import { getAppState, produceAppState } from "../store";
@@ -11,29 +12,81 @@ import {
   type LocalSidecarDevice,
 } from "../sidecars";
 import {
-  isGpuPreferredTranscriptionDevice,
-  LOCAL_WHISPER_MODELS,
-  type LocalWhisperModel,
+  getIsModelFolderChangeBlocked,
+  LOCAL_MODELS,
+  type LocalModelId,
   normalizeTranscriptionDevice,
 } from "../utils/local-transcription.utils";
 import { getEffectiveTranscriptionMode } from "../utils/user.utils";
 import { showErrorSnackbar } from "./app.actions";
-import { setPreferredTranscriptionDevice } from "./user.actions";
+import {
+  setPreferredTranscriptionDevice,
+  updateUserPreferences,
+} from "./user.actions";
 
-const getPreferGpu = (state: AppState): boolean =>
-  isGpuPreferredTranscriptionDevice(state.settings.aiTranscription.device);
+export const setPreferredModelsDir = async (
+  modelsDir: string | null,
+): Promise<void> => {
+  const normalized = modelsDir?.trim() ? modelsDir.trim() : null;
+  const state = getAppState();
+  if (normalized === state.settings.aiTranscription.modelsDir) {
+    return;
+  }
+  if (getIsModelFolderChangeBlocked(state)) {
+    throw new Error(
+      getIntl().formatMessage({
+        defaultMessage:
+          "Finish recording, transcription, and model downloads or deletions before changing the model folder.",
+      }),
+    );
+  }
+
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelsDirChangeStatus = "saving";
+  });
+
+  try {
+    if (normalized !== null && !(await isAbsolute(normalized))) {
+      throw new Error(
+        getIntl().formatMessage({
+          defaultMessage:
+            "Enter a full model folder path, such as D:/Models, or leave it empty to use the default folder.",
+        }),
+      );
+    }
+    await updateUserPreferences((preferences) => {
+      preferences.modelsDir = normalized;
+    });
+  } catch (error) {
+    produceAppState((draft) => {
+      draft.settings.aiTranscription.modelsDirChangeStatus = null;
+    });
+    throw error;
+  }
+
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelsDirChangeStatus = "restart-required";
+  });
+  await relaunch();
+};
 
 const resolvePreferredDevice = (
   currentDevice: string,
   devices: LocalSidecarDevice[],
+  deviceChosen: boolean,
 ): string => {
+  const firstCpuDevice = devices.find((device) => device.mode === "cpu")?.id;
+  const firstGpuDevice = devices.find((device) => device.mode === "gpu")?.id;
+
+  if (!deviceChosen && firstGpuDevice) {
+    return firstGpuDevice;
+  }
+
   const normalizedCurrent = normalizeTranscriptionDevice(currentDevice);
   if (devices.some((device) => device.id === normalizedCurrent)) {
     return normalizedCurrent;
   }
 
-  const firstCpuDevice = devices.find((device) => device.mode === "cpu")?.id;
-  const firstGpuDevice = devices.find((device) => device.mode === "gpu")?.id;
   if (normalizedCurrent.startsWith("gpu")) {
     return firstGpuDevice ?? firstCpuDevice ?? CPU_DEVICE_VALUE;
   }
@@ -61,6 +114,7 @@ export const refreshLocalTranscriptionDevices = async ({
     const resolvedDevice = resolvePreferredDevice(
       state.settings.aiTranscription.device,
       devices,
+      state.settings.aiTranscription.deviceChosen,
     );
 
     produceAppState((draft) => {
@@ -99,7 +153,6 @@ export const refreshLocalTranscriptionModelStatuses = async ({
     return null;
   }
 
-  const preferGpu = getPreferGpu(state);
   const sidecarManager = getLocalTranscriptionSidecarManager();
 
   produceAppState((draft) => {
@@ -108,9 +161,8 @@ export const refreshLocalTranscriptionModelStatuses = async ({
 
   try {
     const statuses = await sidecarManager.listModelStatuses({
-      preferGpu,
       validate: true,
-      models: LOCAL_WHISPER_MODELS,
+      models: LOCAL_MODELS,
     });
 
     produceAppState((draft) => {
@@ -139,26 +191,31 @@ export const refreshLocalTranscriptionModelStatuses = async ({
 };
 
 export const downloadLocalTranscriptionModel = async (
-  model: LocalWhisperModel,
+  model: LocalModelId,
 ): Promise<void> => {
   const state = getAppState();
   if (getEffectiveTranscriptionMode(state) !== "local") {
     return;
   }
 
-  const existingDownload =
-    state.settings.aiTranscription.localModelManagement.modelDownloads[model];
-  if (isLocalTranscriptionModelDownloadInProgress(existingDownload)) {
+  if (
+    state.settings.aiTranscription.localModelManagement.downloadingModels.includes(
+      model,
+    )
+  ) {
     return;
   }
 
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.localModelManagement.downloadingModels.push(
+      model,
+    );
+  });
   const sidecarManager = getLocalTranscriptionSidecarManager();
-  const preferGpu = getPreferGpu(state);
 
   try {
     await sidecarManager.downloadModel({
       model,
-      preferGpu,
       onProgress: (snapshot) => {
         produceAppState((draft) => {
           draft.settings.aiTranscription.localModelManagement.modelDownloads[
@@ -172,15 +229,17 @@ export const downloadLocalTranscriptionModel = async (
     showErrorSnackbar(`Unable to download '${model}' model: ${error}`);
   } finally {
     produceAppState((draft) => {
-      delete draft.settings.aiTranscription.localModelManagement.modelDownloads[
-        model
-      ];
+      const management = draft.settings.aiTranscription.localModelManagement;
+      management.downloadingModels = management.downloadingModels.filter(
+        (downloadingModel) => downloadingModel !== model,
+      );
+      delete management.modelDownloads[model];
     });
   }
 };
 
 export const deleteLocalTranscriptionModel = async (
-  model: LocalWhisperModel,
+  model: LocalModelId,
 ): Promise<LocalTranscriptionModelStatusMap | null> => {
   const state = getAppState();
   if (getEffectiveTranscriptionMode(state) !== "local") {
@@ -192,7 +251,6 @@ export const deleteLocalTranscriptionModel = async (
   }
 
   const sidecarManager = getLocalTranscriptionSidecarManager();
-  const preferGpu = getPreferGpu(state);
 
   produceAppState((draft) => {
     draft.settings.aiTranscription.localModelManagement.modelDeletes[model] =
@@ -200,7 +258,7 @@ export const deleteLocalTranscriptionModel = async (
   });
 
   try {
-    await sidecarManager.deleteModel({ model, preferGpu });
+    await sidecarManager.deleteModel({ model });
     return await refreshLocalTranscriptionModelStatuses({ showErrors: false });
   } catch (error) {
     showErrorSnackbar(`Unable to delete '${model}' model: ${error}`);

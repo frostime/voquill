@@ -4,12 +4,14 @@ mod config;
 mod downloads;
 mod errors;
 mod models;
+mod qwen;
 mod state;
 mod streaming_sessions;
+mod transcribe_dll;
 mod transcription;
 
 pub use compute::ComputeMode;
-pub use models::WhisperModel;
+pub use models::LocalModel;
 pub use transcription::ensure_gpu_runtime_available;
 
 use std::io::{self, Write};

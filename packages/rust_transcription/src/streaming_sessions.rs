@@ -4,11 +4,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::models::WhisperModel;
+use crate::models::LocalModel;
 
 #[derive(Debug, Clone)]
 pub struct BufferedTranscriptionSession {
-    pub model: WhisperModel,
+    pub model: LocalModel,
     pub sample_rate: u32,
     pub language: Option<String>,
     pub initial_prompt: Option<String>,
@@ -18,7 +18,7 @@ pub struct BufferedTranscriptionSession {
 
 #[derive(Debug, Clone)]
 pub struct BufferedTranscriptionSessionInput {
-    pub model: WhisperModel,
+    pub model: LocalModel,
     pub sample_rate: u32,
     pub language: Option<String>,
     pub initial_prompt: Option<String>,

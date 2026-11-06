@@ -1,6 +1,7 @@
 import {
   AgentMode,
   DictationPillVisibility,
+  ModelDownloadSource,
   Nullable,
   PostProcessingMode,
   TranscriptionMode,
@@ -21,6 +22,8 @@ type LocalUserPreferences = {
   transcriptionApiKeyId: Nullable<string>;
   transcriptionDevice: Nullable<string>;
   transcriptionModelSize: Nullable<string>;
+  modelsDir: Nullable<string>;
+  modelDownloadSource: Nullable<string>;
   postProcessingMode: Nullable<string>;
   postProcessingApiKeyId: Nullable<string>;
   postProcessingOllamaUrl: Nullable<string>;
@@ -57,6 +60,10 @@ type LocalUserPreferences = {
 };
 
 // Normalize post-processing mode for backwards compatibility
+const normalizeModelDownloadSource = (
+  source: Nullable<string>,
+): ModelDownloadSource => (source === "official" ? "official" : "mirror");
+
 // "ollama" mode is no longer supported - treat it as "none" (user needs to re-add Ollama via API keys)
 const normalizePostProcessingMode = (
   mode: Nullable<string>,
@@ -77,6 +84,10 @@ export const fromLocalPreferences = (
   transcriptionApiKeyId: preferences.transcriptionApiKeyId,
   transcriptionDevice: preferences.transcriptionDevice,
   transcriptionModelSize: preferences.transcriptionModelSize,
+  modelsDir: preferences.modelsDir ?? null,
+  modelDownloadSource: normalizeModelDownloadSource(
+    preferences.modelDownloadSource,
+  ),
   postProcessingMode: normalizePostProcessingMode(
     preferences.postProcessingMode,
   ),
@@ -123,6 +134,8 @@ export const toLocalPreferences = (
   transcriptionApiKeyId: preferences.transcriptionApiKeyId ?? null,
   transcriptionDevice: preferences.transcriptionDevice ?? null,
   transcriptionModelSize: preferences.transcriptionModelSize ?? null,
+  modelsDir: preferences.modelsDir ?? null,
+  modelDownloadSource: preferences.modelDownloadSource,
   postProcessingMode: preferences.postProcessingMode ?? null,
   postProcessingApiKeyId: preferences.postProcessingApiKeyId ?? null,
   postProcessingOllamaUrl: preferences.postProcessingOllamaUrl ?? null,

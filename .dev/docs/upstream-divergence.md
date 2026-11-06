@@ -120,6 +120,7 @@ last_reviewed_upstream: ef8572a3
 
 - 字典导出为 txt（一个词一行）——10.0.2（`e85f5fb5`）
 - 润色 API Key 可配置 provider 原生 JSON 请求参数（`postProcessingOptions`）——10.0.4-beta.1（`9046c6ea`、`d59a0538`）；8 个 `voice-ai` adapter 与 API Key CRUD 因此带有本地专用的 `requestOptions` 透传，同步上游这些文件时需保留
+- 本地模型：镜像/官方下载源回退、可配置模型目录、内置 Qwen3-ASR 0.6B（预编译 transcribe.cpp 运行时）、默认使用独显——详见 `.dev/changes/local-models-qwen/`；`packages/rust_transcription` 的 `models.rs`（模型注册表）与 `api.rs`（家族分派）是上游没有的结构
 
 ## 五、上游同步规则
 

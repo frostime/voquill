@@ -1,7 +1,7 @@
 import {
   supportsGpuTranscriptionDevice,
-  type LocalWhisperModel,
-  LOCAL_WHISPER_MODELS,
+  type LocalModelId,
+  LOCAL_MODELS,
 } from "../utils/local-transcription.utils";
 import { getLogger } from "../utils/log.utils";
 import {
@@ -50,55 +50,48 @@ class LocalTranscriptionSidecarFacade {
     return devices;
   }
 
+  // Model management always runs on the CPU sidecar: both binaries share one
+  // models directory, and two download registries would race over it.
   async listModelStatuses({
-    preferGpu,
     validate = true,
-    models = LOCAL_WHISPER_MODELS,
+    models = LOCAL_MODELS,
   }: {
-    preferGpu: boolean;
     validate?: boolean;
-    models?: LocalWhisperModel[];
-  }): Promise<Record<LocalWhisperModel, LocalSidecarModelStatus>> {
-    const sidecar = await this.resolveRuntime(preferGpu);
-    return await sidecar.listModelStatuses(models, validate);
+    models?: LocalModelId[];
+  }): Promise<Record<LocalModelId, LocalSidecarModelStatus>> {
+    await this.cpuSidecar.ensureStarted();
+    return await this.cpuSidecar.listModelStatuses(models, validate);
   }
 
   async getModelStatus({
     model,
-    preferGpu,
     validate = true,
   }: {
-    model: LocalWhisperModel;
-    preferGpu: boolean;
+    model: LocalModelId;
     validate?: boolean;
   }): Promise<LocalSidecarModelStatus> {
-    const sidecar = await this.resolveRuntime(preferGpu);
-    return await sidecar.getModelStatus(model, validate);
+    await this.cpuSidecar.ensureStarted();
+    return await this.cpuSidecar.getModelStatus(model, validate);
   }
 
   async downloadModel({
     model,
-    preferGpu,
     onProgress,
   }: {
-    model: LocalWhisperModel;
-    preferGpu: boolean;
+    model: LocalModelId;
     onProgress?: (snapshot: LocalSidecarDownloadSnapshot) => void;
   }): Promise<LocalSidecarModelStatus> {
-    const sidecar = await this.resolveRuntime(preferGpu);
-    return await sidecar.downloadModel(model, onProgress);
+    await this.cpuSidecar.ensureStarted();
+    return await this.cpuSidecar.downloadModel(model, onProgress);
   }
 
   async deleteModel({
     model,
-    preferGpu,
   }: {
-    model: LocalWhisperModel;
-    preferGpu: boolean;
+    model: LocalModelId;
   }): Promise<LocalSidecarModelStatus> {
-    const sidecar = await this.resolveRuntime(preferGpu);
-    const result = await sidecar.deleteModel(model);
-    this.cpuSidecar.invalidateModelReadiness(model);
+    await this.cpuSidecar.ensureStarted();
+    const result = await this.cpuSidecar.deleteModel(model);
     this.gpuSidecar.invalidateModelReadiness(model);
     return result;
   }

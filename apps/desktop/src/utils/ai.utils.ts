@@ -57,8 +57,13 @@ export const applyAiPreferences = (
     preferences.transcriptionDevice ?? CPU_DEVICE_VALUE,
   );
   draft.settings.aiTranscription.device = normalizedDevice;
+  draft.settings.aiTranscription.deviceChosen =
+    preferences.transcriptionDevice != null;
   draft.settings.aiTranscription.modelSize =
     preferences.transcriptionModelSize ?? DEFAULT_MODEL_SIZE;
+  draft.settings.aiTranscription.modelsDir = preferences.modelsDir || null;
+  draft.settings.aiTranscription.modelDownloadSource =
+    preferences.modelDownloadSource === "official" ? "official" : "mirror";
   draft.settings.aiTranscription.gpuEnumerationEnabled =
     supportsGpuTranscriptionDevice() &&
     (preferences.gpuEnumerationEnabled ??

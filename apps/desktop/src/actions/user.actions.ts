@@ -1,6 +1,7 @@
 import {
   type AgentMode,
   DictationPillVisibility,
+  ModelDownloadSource,
   Nullable,
   StylingMode,
   User,
@@ -24,7 +25,7 @@ import { getIsEnterpriseEnabled } from "../utils/enterprise.utils";
 import { PRIMARY_LANGUAGE_SENTINEL } from "../utils/language.utils";
 import {
   isGpuPreferredTranscriptionDevice,
-  normalizeLocalWhisperModel,
+  normalizeLocalModelId,
   normalizeTranscriptionDevice,
   supportsGpuTranscriptionDevice,
 } from "../utils/local-transcription.utils";
@@ -89,6 +90,8 @@ export const createDefaultPreferences = (): UserPreferences => ({
   transcriptionApiKeyId: null,
   transcriptionDevice: null,
   transcriptionModelSize: null,
+  modelsDir: null,
+  modelDownloadSource: "mirror",
   postProcessingMode: null,
   postProcessingApiKeyId: null,
   postProcessingOllamaUrl: null,
@@ -499,6 +502,7 @@ export const setPreferredTranscriptionDevice = async (
 
   produceAppState((draft) => {
     draft.settings.aiTranscription.device = normalizedDevice;
+    draft.settings.aiTranscription.deviceChosen = true;
     draft.settings.aiTranscription.gpuEnumerationEnabled =
       gpuEnumerationEnabled;
   });
@@ -509,10 +513,22 @@ export const setPreferredTranscriptionDevice = async (
   });
 };
 
+export const setModelDownloadSource = async (
+  source: ModelDownloadSource,
+): Promise<void> => {
+  produceAppState((draft) => {
+    draft.settings.aiTranscription.modelDownloadSource = source;
+  });
+
+  await updateUserPreferences((preferences) => {
+    preferences.modelDownloadSource = source;
+  });
+};
+
 export const setPreferredTranscriptionModelSize = async (
   modelSize: string,
 ): Promise<void> => {
-  const normalizedModelSize = normalizeLocalWhisperModel(modelSize);
+  const normalizedModelSize = normalizeLocalModelId(modelSize);
   produceAppState((draft) => {
     draft.settings.aiTranscription.modelSize = normalizedModelSize;
   });

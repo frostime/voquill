@@ -8,27 +8,27 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
   refreshLocalTranscriptionDevices,
   deleteLocalTranscriptionModel,
   downloadLocalTranscriptionModel,
   refreshLocalTranscriptionModelStatuses,
+  setPreferredModelsDir,
 } from "../../actions/settings-local-transcription.actions";
 import { showErrorSnackbar } from "../../actions/app.actions";
 import {
+  setModelDownloadSource,
   setPreferredTranscriptionApiKeyId,
   setPreferredTranscriptionDevice,
   setPreferredTranscriptionMode,
   setPreferredTranscriptionModelSize,
 } from "../../actions/user.actions";
-import {
-  isLocalTranscriptionModelDownloadInProgress,
-  isLocalTranscriptionModelSelectable,
-} from "../../state/settings.state";
+import { isLocalTranscriptionModelSelectable } from "../../state/settings.state";
 import { useAppStore } from "../../store";
 import { CPU_DEVICE_VALUE, type TranscriptionMode } from "../../types/ai.types";
 import { getAllowsChangeTranscription } from "../../utils/enterprise.utils";
@@ -36,10 +36,12 @@ import { getEffectiveTranscriptionMode } from "../../utils/user.utils";
 import { formatSize } from "../../utils/format.utils";
 import { type LocalSidecarDownloadSnapshot } from "../../sidecars";
 import {
-  type LocalWhisperModel,
-  normalizeLocalWhisperModel,
+  type LocalModelId,
+  getIsModelFolderChangeBlocked,
+  normalizeLocalModelId,
 } from "../../utils/local-transcription.utils";
 import { ManagedByOrgNotice } from "../common/ManagedByOrgNotice";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   SegmentedControl,
   SegmentedControlOption,
@@ -49,7 +51,7 @@ import { ApiKeyList } from "./ApiKeyList";
 import { VoquillCloudSetting } from "./VoquillCloudSetting";
 
 type ModelOption = {
-  value: LocalWhisperModel;
+  value: LocalModelId;
   label: string;
   helper: string;
 };
@@ -90,6 +92,11 @@ const MODEL_OPTIONS: ModelOption[] = [
     label: "Whisper Hindi2Hinglish Apex (595 MB)",
     helper: "Hindi speech transcribed as Hinglish (Latin script)",
   },
+  {
+    value: "qwen3-asr-0.6b",
+    label: "Qwen3-ASR 0.6B (850 MB)",
+    helper: "Multilingual, strong on Chinese; no realtime output",
+  },
 ];
 
 const formatDownloadProgress = (
@@ -129,6 +136,7 @@ export const AITranscriptionConfiguration = ({
   const transcription = useAppStore((state) => state.settings.aiTranscription);
   const effectiveMode = useAppStore(getEffectiveTranscriptionMode);
   const allowChange = useAppStore(getAllowsChangeTranscription);
+  const modelFolderChangeBlocked = useAppStore(getIsModelFolderChangeBlocked);
   const localTranscriptionConfig = transcription.localModelManagement;
 
   const hasSelectedDevice = transcription.availableDevices.some(
@@ -137,12 +145,9 @@ export const AITranscriptionConfiguration = ({
   const deviceValue = hasSelectedDevice
     ? transcription.device
     : (transcription.availableDevices[0]?.id ?? CPU_DEVICE_VALUE);
-  const modelValue = normalizeLocalWhisperModel(transcription.modelSize);
-  const modelDownloadSnapshot =
-    localTranscriptionConfig.modelDownloads[modelValue];
-  const modelDownloading = isLocalTranscriptionModelDownloadInProgress(
-    modelDownloadSnapshot,
-  );
+  const modelValue = normalizeLocalModelId(transcription.modelSize);
+  const modelDownloading =
+    localTranscriptionConfig.downloadingModels.includes(modelValue);
   const modelSelectable = isLocalTranscriptionModelSelectable(
     transcription,
     modelValue,
@@ -193,6 +198,25 @@ export const AITranscriptionConfiguration = ({
     effectiveMode,
   ]);
 
+  const [modelsDirDraft, setModelsDirDraft] = useState(
+    transcription.modelsDir ?? "",
+  );
+  const [modelsDirConfirmationOpen, setModelsDirConfirmationOpen] =
+    useState(false);
+  const modelsDirChanged =
+    (modelsDirDraft.trim() || null) !== transcription.modelsDir;
+
+  useEffect(() => {
+    setModelsDirDraft(transcription.modelsDir ?? "");
+  }, [transcription.modelsDir]);
+
+  const handleModelsDirCommit = useCallback(() => {
+    setModelsDirConfirmationOpen(false);
+    void setPreferredModelsDir(modelsDirDraft.trim() || null).catch((error) => {
+      showErrorSnackbar(error instanceof Error ? error.message : String(error));
+    });
+  }, [modelsDirDraft]);
+
   const handleModeChange = useCallback((mode: TranscriptionMode) => {
     void setPreferredTranscriptionMode(mode);
   }, []);
@@ -203,7 +227,7 @@ export const AITranscriptionConfiguration = ({
 
   const handleModelSizeChange = useCallback(
     (rawModelSize: string) => {
-      const modelSize = normalizeLocalWhisperModel(rawModelSize);
+      const modelSize = normalizeLocalModelId(rawModelSize);
       if (!isLocalTranscriptionModelSelectable(transcription, modelSize)) {
         showErrorSnackbar("Download this model before selecting it.");
         return;
@@ -219,22 +243,18 @@ export const AITranscriptionConfiguration = ({
   }, []);
 
   const handleDownloadModel = useCallback(
-    (model: LocalWhisperModel) => {
-      if (
-        isLocalTranscriptionModelDownloadInProgress(
-          localTranscriptionConfig.modelDownloads[model],
-        )
-      ) {
+    (model: LocalModelId) => {
+      if (localTranscriptionConfig.downloadingModels.includes(model)) {
         return;
       }
 
       void downloadLocalTranscriptionModel(model);
     },
-    [localTranscriptionConfig.modelDownloads],
+    [localTranscriptionConfig.downloadingModels],
   );
 
   const handleDeleteModel = useCallback(
-    (model: LocalWhisperModel) => {
+    (model: LocalModelId) => {
       if (localTranscriptionConfig.modelDeletes[model]) {
         return;
       }
@@ -264,6 +284,17 @@ export const AITranscriptionConfiguration = ({
 
   return (
     <Stack spacing={3} alignItems="flex-start" sx={{ width: "100%" }}>
+      <ConfirmDialog
+        isOpen={modelsDirConfirmationOpen}
+        title={<FormattedMessage defaultMessage="Change model folder?" />}
+        content={
+          <FormattedMessage defaultMessage="Voquill will save the new folder and restart immediately. Existing model files will not be moved or deleted." />
+        }
+        confirmLabel={<FormattedMessage defaultMessage="Save and restart" />}
+        confirmButtonProps={{ disabled: modelFolderChangeBlocked }}
+        onConfirm={handleModelsDirCommit}
+        onCancel={() => setModelsDirConfirmationOpen(false)}
+      />
       <SegmentedControl<TranscriptionMode>
         value={effectiveMode}
         onChange={handleModeChange}
@@ -285,6 +316,57 @@ export const AITranscriptionConfiguration = ({
 
       {effectiveMode === "local" && (
         <Stack spacing={3} sx={{ width: "100%" }}>
+          <Stack direction="row" spacing={2} sx={{ width: "100%" }}>
+            <TextField
+              fullWidth
+              size="small"
+              label={<FormattedMessage defaultMessage="Download source" />}
+              select
+              value={transcription.modelDownloadSource}
+              onChange={(event) =>
+                void setModelDownloadSource(
+                  event.target.value === "official" ? "official" : "mirror",
+                )
+              }
+            >
+              <MenuItem value="mirror">
+                <FormattedMessage defaultMessage="Mirror (hf-mirror, recommended in mainland China)" />
+              </MenuItem>
+              <MenuItem value="official">
+                <FormattedMessage defaultMessage="HuggingFace (official)" />
+              </MenuItem>
+            </TextField>
+            <Stack spacing={1} sx={{ width: "100%" }}>
+              <TextField
+                fullWidth
+                size="small"
+                label={<FormattedMessage defaultMessage="Model folder" />}
+                placeholder={intl.formatMessage({
+                  defaultMessage: "Default app data folder",
+                })}
+                helperText={
+                  modelFolderChangeBlocked ? (
+                    <FormattedMessage defaultMessage="Finish the current recording, transcription, or model download/deletion before changing the folder." />
+                  ) : (
+                    <FormattedMessage defaultMessage="A full folder path is required. Changing it restarts Voquill." />
+                  )
+                }
+                value={modelsDirDraft}
+                disabled={modelFolderChangeBlocked}
+                onChange={(event) => setModelsDirDraft(event.target.value)}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={!modelsDirChanged || modelFolderChangeBlocked}
+                onClick={() => setModelsDirConfirmationOpen(true)}
+                sx={{ alignSelf: "flex-end" }}
+              >
+                <FormattedMessage defaultMessage="Save and restart" />
+              </Button>
+            </Stack>
+          </Stack>
+
           <FormControl
             fullWidth
             size="small"
@@ -341,7 +423,7 @@ export const AITranscriptionConfiguration = ({
                 handleModelSizeChange(String(event.target.value))
               }
               renderValue={(value) => {
-                const model = normalizeLocalWhisperModel(String(value));
+                const model = normalizeLocalModelId(String(value));
                 const option = MODEL_OPTIONS.find(
                   (item) => item.value === model,
                 );
@@ -362,7 +444,7 @@ export const AITranscriptionConfiguration = ({
                 const downloadSnapshot =
                   localTranscriptionConfig.modelDownloads[value];
                 const downloading =
-                  isLocalTranscriptionModelDownloadInProgress(downloadSnapshot);
+                  localTranscriptionConfig.downloadingModels.includes(value);
                 const deleting = !!localTranscriptionConfig.modelDeletes[value];
                 const selectable = isLocalTranscriptionModelSelectable(
                   transcription,
@@ -523,6 +605,10 @@ export const AITranscriptionConfiguration = ({
               </Box>
             )}
           </FormControl>
+
+          <Typography variant="caption" color="text.secondary">
+            <FormattedMessage defaultMessage="After deleting and downloading a model again, restart Voquill before using it." />
+          </Typography>
 
           {localTranscriptionConfig.modelStatusesLoading && (
             <Stack direction="row" spacing={1} alignItems="center">

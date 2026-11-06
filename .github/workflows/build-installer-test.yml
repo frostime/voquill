@@ -1,0 +1,95 @@
+name: Build test installer
+
+# Manual-only: produce a Windows installer that contains the Vulkan GPU sidecar
+# and the prebuilt transcribe runtime, for on-device verification.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/local-models-qwen
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - ".github/workflows/build-installer-test.yml"
+
+jobs:
+  build-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      CARGO_TARGET_DIR: D:/cargo
+      TAURI_PLATFORM: windows
+      VOQUILL_DESKTOP_PLATFORM: win32
+      VOQUILL_REQUIRE_GPU_SIDECAR: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> D:/cargo
+          key: installer-gpu
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        timeout-minutes: 30
+        run: |
+          $ErrorActionPreference = "Stop"
+          choco install vulkan-sdk --no-progress -y --limit-output
+          $sdk = Get-ChildItem "C:/VulkanSDK" -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          if (-not $sdk) { throw "No VulkanSDK directory found" }
+          $target = $sdk.FullName -replace '\\', '/'
+          Write-Host "VULKAN_SDK=$target"
+          if (-not (Test-Path (Join-Path $target 'Lib/vulkan-1.lib'))) {
+            throw "Vulkan SDK install incomplete at $target"
+          }
+          "VULKAN_SDK=$target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend and dependencies
+        run: pnpm exec turbo run build --filter=desktop...
+
+      - name: Build desktop app
+        working-directory: apps/desktop
+        run: pnpm run tauri build --ci
+
+      - name: Verify bundled runtime
+        shell: pwsh
+        run: |
+          $binaries = "apps/desktop/src-tauri/binaries"
+          $cpu = (Get-FileHash "$binaries/rust-transcription-cpu-x86_64-pc-windows-msvc.exe" -Algorithm SHA256).Hash
+          $gpu = (Get-FileHash "$binaries/rust-transcription-gpu-x86_64-pc-windows-msvc.exe" -Algorithm SHA256).Hash
+          if ($cpu -eq $gpu) { throw "GPU sidecar is a copy of the CPU sidecar" }
+          if (-not (Test-Path "apps/desktop/src-tauri/resources/transcribe/transcribe.dll")) {
+            throw "transcribe runtime missing from resources"
+          }
+          Write-Host "sidecars differ; transcribe runtime present"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: voquill-installer
+          path: |
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/**/*.msi
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/**/*.exe
+          retention-days: 7

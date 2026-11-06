@@ -1,0 +1,90 @@
+name: GPU sidecar build test
+
+# Manual-only probe: does the Windows GPU sidecar actually build with the
+# Vulkan SDK, and does the resulting binary differ from the CPU one?
+# The runner has no GPU, so this validates the build/link step only.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-gpu-sidecar:
+    name: Build GPU sidecar (Vulkan)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      CARGO_TARGET_DIR: D:/cargo
+      VOQUILL_REQUIRE_GPU_SIDECAR: "true"
+      VOQUILL_SIDECAR_PROFILE: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/rust_transcription -> D:/cargo
+          key: gpu-sidecar-vulkan
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        timeout-minutes: 30
+        run: |
+          $ErrorActionPreference = "Stop"
+          choco install vulkan-sdk --no-progress -y --limit-output
+          $sdk = Get-ChildItem "C:/VulkanSDK" -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          if (-not $sdk) { throw "No VulkanSDK directory found" }
+          $target = $sdk.FullName -replace '\\', '/'
+          $lib = Join-Path $target 'Lib/vulkan-1.lib'
+          Write-Host "VULKAN_SDK=$target"
+          if (-not (Test-Path $lib)) { throw "missing $lib" }
+          "VULKAN_SDK=$target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Show toolchain
+        run: |
+          rustc -vV
+          node --version
+          cmake --version
+
+      - name: Build sidecars
+        timeout-minutes: 45
+        working-directory: apps/desktop
+        run: node scripts/prepare-sidecars.mjs
+
+      - name: Verify GPU binary differs and links Vulkan
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dir = "apps/desktop/src-tauri/binaries"
+          $cpu = Join-Path $dir "rust-transcription-cpu-x86_64-pc-windows-msvc.exe"
+          $gpu = Join-Path $dir "rust-transcription-gpu-x86_64-pc-windows-msvc.exe"
+          $cpuHash = (Get-FileHash $cpu -Algorithm SHA256).Hash
+          $gpuHash = (Get-FileHash $gpu -Algorithm SHA256).Hash
+          $cpuSize = (Get-Item $cpu).Length
+          $gpuSize = (Get-Item $gpu).Length
+          Write-Host "cpu sha256=$cpuHash size=$cpuSize"
+          Write-Host "gpu sha256=$gpuHash size=$gpuSize"
+          if ($cpuHash -eq $gpuHash) {
+            throw "GPU binary is a copy of the CPU binary (Vulkan build did not happen)"
+          }
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($gpu))
+          if (-not $text.Contains("vulkan-1.dll")) {
+            throw "GPU binary does not reference vulkan-1.dll"
+          }
+          Write-Host "OK: GPU binary differs from CPU and references vulkan-1.dll"
+          "## GPU sidecar build`n- cpu: $cpuSize bytes ($cpuHash)`n- gpu: $gpuSize bytes ($gpuHash)`n- references vulkan-1.dll: yes" |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload sidecar binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-binaries
+          path: |
+            apps/desktop/src-tauri/binaries/rust-transcription-cpu-x86_64-pc-windows-msvc.exe
+            apps/desktop/src-tauri/binaries/rust-transcription-gpu-x86_64-pc-windows-msvc.exe
+          retention-days: 7

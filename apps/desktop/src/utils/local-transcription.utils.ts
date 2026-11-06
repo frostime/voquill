@@ -1,16 +1,31 @@
+import type { AppState } from "../state/app.state";
 import { CPU_DEVICE_VALUE } from "../types/ai.types";
 
-export type LocalWhisperModel =
+export const getIsModelFolderChangeBlocked = (state: AppState): boolean => {
+  const transcription = state.settings.aiTranscription;
+  const models = transcription.localModelManagement;
+  return (
+    transcription.modelsDirChangeStatus !== null ||
+    state.activeRecordingMode !== null ||
+    state.overlayPhase !== "idle" ||
+    state.transcriptions.retranscribingIds.length > 0 ||
+    models.downloadingModels.length > 0 ||
+    Object.values(models.modelDeletes).some(Boolean)
+  );
+};
+
+export type LocalModelId =
   | "tiny"
   | "base"
   | "small"
   | "medium"
   | "large"
   | "turbo"
-  | "hindi2hinglish";
+  | "hindi2hinglish"
+  | "qwen3-asr-0.6b";
 
-export const DEFAULT_LOCAL_WHISPER_MODEL: LocalWhisperModel = "tiny";
-export const LOCAL_WHISPER_MODELS: LocalWhisperModel[] = [
+export const DEFAULT_LOCAL_MODEL: LocalModelId = "tiny";
+export const LOCAL_MODELS: LocalModelId[] = [
   "tiny",
   "base",
   "small",
@@ -18,11 +33,12 @@ export const LOCAL_WHISPER_MODELS: LocalWhisperModel[] = [
   "turbo",
   "large",
   "hindi2hinglish",
+  "qwen3-asr-0.6b",
 ];
 
-export const normalizeLocalWhisperModel = (
+export const normalizeLocalModelId = (
   value: string | null | undefined,
-): LocalWhisperModel => {
+): LocalModelId => {
   const normalized = value?.trim().toLowerCase();
 
   if (normalized === "tiny" || normalized === "tiny.en") {
@@ -63,7 +79,16 @@ export const normalizeLocalWhisperModel = (
     return "hindi2hinglish";
   }
 
-  return DEFAULT_LOCAL_WHISPER_MODEL;
+  if (
+    normalized === "qwen3-asr-0.6b" ||
+    normalized === "qwen3_asr06_b" ||
+    normalized === "qwen3-asr" ||
+    normalized === "qwen"
+  ) {
+    return "qwen3-asr-0.6b";
+  }
+
+  return DEFAULT_LOCAL_MODEL;
 };
 
 export const isGpuPreferredTranscriptionDevice = (

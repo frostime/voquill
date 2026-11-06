@@ -1,0 +1,4 @@
+# Preserve the exact migration bytes used by the existing Windows installation.
+apps/desktop/src-tauri/src/db/migrations/*.sql text eol=crlf
+# Migration 69 shipped with LF in 10.0.4-beta.1.
+apps/desktop/src-tauri/src/db/migrations/069_api_key_post_processing_options.sql text eol=lf

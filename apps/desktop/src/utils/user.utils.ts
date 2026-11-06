@@ -50,7 +50,10 @@ export const getIsOnboarded = (state: AppState): boolean => {
 };
 
 export const getIsDictationUnlocked = (state: AppState): boolean => {
-  return getIsOnboarded(state) || state.onboarding.dictationOverrideEnabled;
+  return (
+    state.settings.aiTranscription.modelsDirChangeStatus === null &&
+    (getIsOnboarded(state) || state.onboarding.dictationOverrideEnabled)
+  );
 };
 
 export const getHasCloudAccess = (state: AppState): boolean => {
