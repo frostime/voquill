@@ -9,7 +9,7 @@
 - R2 客观验证：TS 单测、类型/静态检查、Rust 单测及集成测试通过；真实安装包 DLL 与应用生成的资源路径已隔离验证，Qwen CPU 转写通过。
 - R3 安装基线（`8e8e7aff`）：[安装包构建](https://github.com/frostime/voquill/actions/runs/42037110853)与[校验](https://github.com/frostime/voquill/actions/runs/42037110978)成功；332 TS tests、10 Rust tests、类型/静态检查通过。包内 Whisper/Qwen 均使用 GTX 1050 Ti 转写成功；安装界面确认/取消、保存目录后重启已实测。原 API 模式、CPU 选择及默认模型目录已恢复。
 - R4 升级阻塞修正 [I7]：done（`1057cc92`）。[重建安装包](https://github.com/frostime/voquill/actions/runs/42064429688)成功；未修过迁移记录的原始旧库副本实际启动并迁移到 70，记录数量与旧偏好保持一致。当前已安装该包，现用数据库已恢复，临时校验修复已撤回。
-- 发布准备：安装验收完成，等待用户决定正式发布。<< CURRENT。CHANGELOG 暂留 `[Unreleased]`，尚未合入 main 或创建 Release。
+- 发布 10.1.0：用户已授权正式发布。<< CURRENT。归档 CHANGELOG，合入 main，上传 R4 已验收的同一份安装包。
 
 ## Current Phase
 
@@ -19,7 +19,7 @@ R4 的 `.gitattributes` 固定旧版已发布字节：前 68 条迁移 CRLF，�
 
 本机状态：安装版本 10.1.0（R4）；现用数据库已恢复，上一轮临时改为 CRLF 的第 69 条校验已还原成原始 LF 值；原 API 模式、CPU 选择和默认模型目录保留。测试应用已停止。原始备份和升级后副本仅保存在本机 `tmp/`。
 
-Now: 等待正式发布决定。安装包在 `tmp/installer-10.1.0-r4/`；升级结果在 `tmp/R4-upgrade-results.json`，仅包含通过标记，不含密钥或历史正文。
+Now: 用户已授权正式发布；CHANGELOG 已归档到 2026-11-06。安装包在 `tmp/installer-10.1.0-r4/`，来自构建提交 `1057cc92`；其后仅更新文档，无产品代码变化。发布目标为 `v10.1.0`，上传 NSIS 与 MSI 两份产物。
 
 ### R3 构建约束
 

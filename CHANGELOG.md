@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [10.1.0] - 2026-11-06
+
 ### Added
 
 - 本地模型下载源可在设置里切换（镜像优先默认 / HuggingFace 官方）。下载按序尝试候选源，只有全部失败才报错；成功后核对文件大小，镜像返回错误页面或半截文件不会被当成已下载。
@@ -76,7 +78,8 @@
 
 - 移除 Mixpanel 后启动白屏（遥测调用读取未初始化实例）。
 
-[Unreleased]: https://github.com/frostime/voquill/compare/v10.0.4...HEAD
+[Unreleased]: https://github.com/frostime/voquill/compare/v10.1.0...HEAD
+[10.1.0]: https://github.com/frostime/voquill/compare/v10.0.4...v10.1.0
 [10.0.4]: https://github.com/frostime/voquill/compare/v10.0.3...v10.0.4
 [10.0.3]: https://github.com/frostime/voquill/compare/v10.0.2...v10.0.3
 [10.0.2]: https://github.com/frostime/voquill/compare/v10.0.1...v10.0.2
